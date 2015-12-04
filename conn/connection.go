@@ -5,18 +5,23 @@ import (
 	"net"
 	"bufio"
 	"bytes"
+	"fmt"
 )
 
 type Connection struct {
 	conn 		net.Conn
-	readBuffer	bufio.Reader
+	readBuffer	*bufio.Reader
 	timeout		time.Duration
 	writeBuf    *bytes.Buffer
 	Network		string
 	Addr		string
 }
 
-func DialTimeout(network, addr string, timeout time.Duration) (*Client, error) {
+func (conn Connection) String() string {
+	return fmt.Sprintf("%s %s", conn.Network, conn.Addr)
+}
+
+func DialTimeout(network, addr string, timeout time.Duration) (*Connection, error) {
 	conn, err := net.DialTimeout(network, addr, timeout)
 	if err != nil {
 		return nil, err
