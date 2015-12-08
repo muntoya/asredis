@@ -17,10 +17,10 @@ type reqPtr *requestInfo
 type Client struct {
 	conn		*Connection
 
-	pendingReqs	chan reqPtr
-
+	reqsToWrite	chan reqPtr
+	reqsToRead	chan reqPtr
 }
 
-func (this *Client) QueueRequest() {
-
+func (this *Client) QueueRequest(req *reqPtr) {
+	this.reqsToWrite <- req
 }
