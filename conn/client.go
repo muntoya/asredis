@@ -1,26 +1,50 @@
 package conn
 
-import "github.com/muntoya/asredis/common"
+import (
+	"time"
+	"github.com/muntoya/asredis/common"
+)
 
 type status_code byte
 
 type requestInfo struct {
-	id      int64
 	stat    status_code
 	cmd     string
 	outbuff *[]byte
 	future  interface{}
 	error   common.Error
+	done	chan *requestInfo
 }
-type reqPtr *requestInfo
 
 type Client struct {
 	conn		*Connection
 
-	reqsToWrite	chan reqPtr
-	reqsToRead	chan reqPtr
+	reqsSend	chan *requestInfo
+	reqsRecv	chan *requestInfo
 }
 
-func (this *Client) QueueRequest(req *reqPtr) {
-	this.reqsToWrite <- req
+
+func (this *Client) QueueRequest(cmd string) {
+	req := &requestInfo{}
+	this.reqsSend <- req
 }
+
+func (this *Client) input() {
+
+}
+
+func NewClient(network, addr string, timeout time.Duration) (client *Client, err error) {
+	connection, err := DialTimeout(network, addr, timeout)
+	if err == nil {
+		return
+	}
+
+	client = &Client{conn: connection}
+	client.reqsRecv = make(chan *requestInfo, 100)
+	client.reqsRecv = make(chan *requestInfo, 100)
+
+	go client.input()
+
+	return client, err
+}
+

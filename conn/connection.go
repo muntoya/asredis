@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"github.com/muntoya/asredis/common"
 )
 
 type Connection struct {
