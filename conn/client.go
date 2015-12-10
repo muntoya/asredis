@@ -11,8 +11,7 @@ type requestInfo struct {
 	stat    status_code
 	cmd     string
 	outbuff *[]byte
-	future  interface{}
-	error   common.Error
+	error   common.RedisError
 	done	chan *requestInfo
 }
 
@@ -24,9 +23,13 @@ type Client struct {
 }
 
 
-func (this *Client) QueueRequest(cmd string) {
-	req := &requestInfo{}
+func (this *Client) QueueRequest(cmd string, args []string) {
+	req := &requestInfo{cmd: cmd, }
 	this.reqsSend <- req
+}
+
+func (this *Client) output() {
+
 }
 
 func (this *Client) input() {
@@ -43,6 +46,7 @@ func NewClient(network, addr string, timeout time.Duration) (client *Client, err
 	client.reqsRecv = make(chan *requestInfo, 100)
 	client.reqsRecv = make(chan *requestInfo, 100)
 
+	go client.output()
 	go client.input()
 
 	return client, err

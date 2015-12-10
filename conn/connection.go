@@ -18,8 +18,12 @@ type Connection struct {
 	Addr		string
 }
 
-func (conn Connection) String() string {
-	return fmt.Sprintf("%s %s", conn.Network, conn.Addr)
+func (this *Connection) String() string {
+	return fmt.Sprintf("%s %s", this.Network, this.Addr)
+}
+
+func (this *Connection) Close() error {
+	return this.conn.Close()
 }
 
 func DialTimeout(network, addr string, timeout time.Duration) (*Connection, error) {
