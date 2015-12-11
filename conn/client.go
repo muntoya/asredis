@@ -28,9 +28,6 @@ func (this *Client) QueueRequest(cmd string, args []string) {
 	this.reqsSend <- req
 }
 
-func (this *Client) output() {
-
-}
 
 func (this *Client) input() {
 
@@ -46,7 +43,6 @@ func NewClient(network, addr string, timeout time.Duration) (client *Client, err
 	client.reqsRecv = make(chan *requestInfo, 100)
 	client.reqsRecv = make(chan *requestInfo, 100)
 
-	go client.output()
 	go client.input()
 
 	return client, err
