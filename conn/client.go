@@ -2,6 +2,8 @@ package conn
 
 import (
 	"time"
+	"log"
+	"fmt"
 	"github.com/muntoya/asredis/common"
 )
 
@@ -10,27 +12,52 @@ type status_code byte
 type requestInfo struct {
 	stat    status_code
 	cmd     string
-	outbuff *[]byte
+	args 	[]string
 	error   common.RedisError
-	done	chan *requestInfo
+	Done	chan *requestInfo
 }
 
 type Client struct {
 	conn		*Connection
 
-	reqsSend	chan *requestInfo
-	reqsRecv	chan *requestInfo
+	reqsPending	chan *requestInfo
 }
 
+func (this *Client) Go(cmd string, args []string, done chan *requestInfo) *requestInfo {
+	req := new(requestInfo)
 
-func (this *Client) QueueRequest(cmd string, args []string) {
-	req := &requestInfo{cmd: cmd, }
-	this.reqsSend <- req
+	if done == nil {
+		done = make(chan *requestInfo, 1)
+	} else {
+		if cap(done) == 0 {
+			log.Panic("redis client: done channel is unbuffered")
+		}
+	}
+
+	req.cmd = cmd
+	req.args = args
+	req.Done = done
+
+	this.Send(req)
+
+	return req
+}
+
+func (this *Client) Send(req *requestInfo) {
+	str := req.cmd
+	for _, arg := range req.args {
+		str += " " + arg
+	}
+
+	this.conn.send(str)
+	this.reqsPending <- req
 }
 
 
 func (this *Client) input() {
-
+	fmt.Println(this.conn.readToCRLF())
+	req := <- this.reqsPending
+	req.Done <- req
 }
 
 func NewClient(network, addr string, timeout time.Duration) (client *Client, err error) {
@@ -40,8 +67,7 @@ func NewClient(network, addr string, timeout time.Duration) (client *Client, err
 	}
 
 	client = &Client{conn: connection}
-	client.reqsRecv = make(chan *requestInfo, 100)
-	client.reqsRecv = make(chan *requestInfo, 100)
+	client.reqsPending = make(chan *requestInfo, 100)
 
 	go client.input()
 
