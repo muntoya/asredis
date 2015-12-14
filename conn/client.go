@@ -62,7 +62,7 @@ func (this *Client) input() {
 
 func NewClient(network, addr string, timeout time.Duration) (client *Client, err error) {
 	connection, err := DialTimeout(network, addr, timeout)
-	if err == nil {
+	if err != nil {
 		return
 	}
 

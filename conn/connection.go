@@ -26,7 +26,6 @@ func (this *Connection) Close() error {
 }
 
 func (this *Connection) readToCRLF() []byte {
-	//	var buf []byte
 	buf, e := this.readBuffer.ReadBytes(cr_byte)
 	if e != nil {
 		panic(common.NewRedisErrorf("readToCRLF - ReadBytes", e))
