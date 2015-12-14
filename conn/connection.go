@@ -44,6 +44,7 @@ func (this *Connection) readToCRLF() []byte {
 
 func (this *Connection) send(str string) {
 	this.writeBuffer.WriteString(str)
+	this.writeBuffer.Flush()
 }
 
 func DialTimeout(network, addr string, timeout time.Duration) (*Connection, error) {

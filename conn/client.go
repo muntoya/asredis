@@ -4,6 +4,7 @@ import (
 	"time"
 	"log"
 	"fmt"
+	"bytes"
 	"github.com/muntoya/asredis/common"
 )
 
@@ -20,6 +21,7 @@ type requestInfo struct {
 type Client struct {
 	conn		*Connection
 
+	cmdBuf		bytes.Buffer
 	reqsPending	chan *requestInfo
 }
 
@@ -44,18 +46,24 @@ func (this *Client) Go(cmd string, args []string, done chan *requestInfo) *reque
 }
 
 func (this *Client) Send(req *requestInfo) {
-	str := req.cmd
+	this.cmdBuf.WriteString(req.cmd)
+
 	for _, arg := range req.args {
-		str += " " + arg
+		this.cmdBuf.WriteByte(' ')
+		this.cmdBuf.WriteString(arg)
 	}
 
+	this.cmdBuf.Write([]byte{cr_byte, lf_byte})
+	str := this.cmdBuf.String()
+	fmt.Println(str)
 	this.conn.send(str)
+	this.cmdBuf.Reset()
 	this.reqsPending <- req
 }
 
 
 func (this *Client) input() {
-	fmt.Println(this.conn.readToCRLF())
+	fmt.Println(string(this.conn.readToCRLF()))
 	req := <- this.reqsPending
 	req.Done <- req
 }
