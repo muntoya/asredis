@@ -20,6 +20,7 @@ func TestClient(t *testing.T) {
 		t.Error(err)
 	}
 
-	req := client.Go("SET", []string{"int", "1"}, nil)
+	req := client.Go("SET", []interface{}{"int", 1}, nil)
 	<- req.Done
+	t.Log(req.reply.Value)
 }

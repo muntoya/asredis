@@ -17,6 +17,18 @@ const (
 	true_byte       = byte('1')
 )
 
+var cr_lf = []byte{cr_byte, lf_byte}
+
+type ResponseType int
+
+const (
+	STRING ResponseType = iota
+	ERROR
+	INTEGER
+	BULK
+	ARRAY
+)
+
 func sendRequest(w io.Writer, data []byte) {
 	loginfo := "sendRequest"
 	if w == nil {

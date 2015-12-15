@@ -5,17 +5,25 @@ import (
 	"log"
 	"fmt"
 	"bytes"
-	"github.com/muntoya/asredis/common"
+	"strconv"
 )
 
-type status_code byte
+
+type Reply struct {
+	Type	ResponseType
+	Value	interface{}
+}
 
 type requestInfo struct {
-	stat    status_code
 	cmd     string
-	args 	[]string
-	error   common.RedisError
+	args 	[]interface{}
+	err		error
+	reply	Reply
 	Done	chan *requestInfo
+}
+
+func (this *requestInfo) done() {
+	this.Done <- this
 }
 
 type Client struct {
@@ -25,7 +33,7 @@ type Client struct {
 	reqsPending	chan *requestInfo
 }
 
-func (this *Client) Go(cmd string, args []string, done chan *requestInfo) *requestInfo {
+func (this *Client) Go(cmd string, args []interface{}, done chan *requestInfo) *requestInfo {
 	req := new(requestInfo)
 
 	if done == nil {
@@ -46,26 +54,23 @@ func (this *Client) Go(cmd string, args []string, done chan *requestInfo) *reque
 }
 
 func (this *Client) Send(req *requestInfo) {
-	this.cmdBuf.WriteString(req.cmd)
-
-	for _, arg := range req.args {
-		this.cmdBuf.WriteByte(' ')
-		this.cmdBuf.WriteString(arg)
-	}
-
-	this.cmdBuf.Write([]byte{cr_byte, lf_byte})
-	str := this.cmdBuf.String()
+	str, err := writeReqToBuf(&this.cmdBuf, req)
 	fmt.Println(str)
-	this.conn.send(str)
-	this.cmdBuf.Reset()
-	this.reqsPending <- req
+	if err != nil {
+		this.conn.send(str)
+		this.reqsPending <- req
+	} else {
+		req.err = err
+		req.done()
+	}
 }
 
 
 func (this *Client) input() {
-	fmt.Println(string(this.conn.readToCRLF()))
+	ret := string(this.conn.readToCRLF())
 	req := <- this.reqsPending
-	req.Done <- req
+	req.reply.Value = ret
+	req.done()
 }
 
 func NewClient(network, addr string, timeout time.Duration) (client *Client, err error) {
@@ -82,3 +87,29 @@ func NewClient(network, addr string, timeout time.Duration) (client *Client, err
 	return client, err
 }
 
+func writeReqToBuf(buf *bytes.Buffer, req *requestInfo) (str string, err error) {
+	buf.Reset()
+
+	argsCnt := len(req.args) + 1
+	buf.WriteByte(count_byte)
+	buf.WriteString(strconv.Itoa(argsCnt))
+	buf.Write(cr_lf)
+
+	buf.WriteByte(size_byte)
+	buf.WriteString(strconv.Itoa(len(req.cmd)))
+	buf.Write(cr_lf)
+	buf.WriteString(req.cmd)
+	buf.Write(cr_lf)
+
+	for _, arg := range req.args {
+		v := fmt.Sprint(arg)
+		buf.WriteByte(size_byte)
+		buf.WriteString(strconv.Itoa(len(v)))
+		buf.Write(cr_lf)
+
+		buf.WriteString(v)
+		buf.Write(cr_lf)
+	}
+
+	return buf.String(), nil
+}
