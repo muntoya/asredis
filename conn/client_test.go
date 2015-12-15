@@ -22,5 +22,4 @@ func TestClient(t *testing.T) {
 
 	req := client.Go("SET", []interface{}{"int", 1}, nil)
 	<- req.Done
-	t.Log(req.reply.Value)
 }

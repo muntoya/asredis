@@ -56,7 +56,7 @@ func (this *Client) Go(cmd string, args []interface{}, done chan *requestInfo) *
 func (this *Client) Send(req *requestInfo) {
 	str, err := writeReqToBuf(&this.cmdBuf, req)
 	fmt.Println(str)
-	if err != nil {
+	if err == nil {
 		this.conn.send(str)
 		this.reqsPending <- req
 	} else {
