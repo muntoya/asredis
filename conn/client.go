@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"bytes"
 	"strconv"
+	"sync"
 )
 
 
@@ -28,6 +29,8 @@ func (this *requestInfo) done() {
 
 type Client struct {
 	conn		*Connection
+
+	mutex		sync.Mutex
 
 	cmdBuf		bytes.Buffer
 	reqsPending	chan *requestInfo
@@ -54,6 +57,9 @@ func (this *Client) Go(done chan *requestInfo, cmd string, args ...interface{}) 
 }
 
 func (this *Client) Send(req *requestInfo) {
+	this.mutex.Lock()
+	defer this.mutex.Unlock()
+
 	str, err := writeReqToBuf(&this.cmdBuf, req)
 	if err == nil {
 		this.conn.send(str)
