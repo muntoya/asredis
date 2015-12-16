@@ -13,6 +13,7 @@ import (
 type Reply struct {
 	Type	ResponseType
 	Value	interface{}
+	Array	[]interface{}
 }
 
 type RequestInfo struct {
@@ -101,7 +102,7 @@ func writeReqToBuf(buf *bytes.Buffer, req *RequestInfo) (str string, err error) 
 
 	//写入参数个数
 	argsCnt := len(req.args) + 1
-	buf.WriteByte(count_byte)
+	buf.WriteByte(array_byte)
 	buf.WriteString(strconv.Itoa(argsCnt))
 	buf.Write(cr_lf)
 
