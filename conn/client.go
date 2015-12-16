@@ -15,16 +15,21 @@ type Reply struct {
 	Value	interface{}
 }
 
-type requestInfo struct {
+type RequestInfo struct {
 	cmd     string
 	args 	[]interface{}
 	err		error
 	reply	Reply
-	Done	chan *requestInfo
+	Done	chan *RequestInfo
 }
 
-func (this *requestInfo) done() {
+func (this *RequestInfo) done() {
 	this.Done <- this
+}
+
+func (this *RequestInfo) GetReply() *Reply {
+	<- this.Done
+	return &this.reply
 }
 
 type Client struct {
@@ -33,14 +38,14 @@ type Client struct {
 	mutex		sync.Mutex
 
 	cmdBuf		bytes.Buffer
-	reqsPending	chan *requestInfo
+	reqsPending	chan *RequestInfo
 }
 
-func (this *Client) Go(done chan *requestInfo, cmd string, args ...interface{}) *requestInfo {
-	req := new(requestInfo)
+func (this *Client) Go(done chan *RequestInfo, cmd string, args ...interface{}) *RequestInfo {
+	req := new(RequestInfo)
 
 	if done == nil {
-		done = make(chan *requestInfo, 1)
+		done = make(chan *RequestInfo, 1)
 	} else {
 		if cap(done) == 0 {
 			log.Panic("redis client: done channel is unbuffered")
@@ -56,7 +61,7 @@ func (this *Client) Go(done chan *requestInfo, cmd string, args ...interface{}) 
 	return req
 }
 
-func (this *Client) Send(req *requestInfo) {
+func (this *Client) Send(req *RequestInfo) {
 	this.mutex.Lock()
 	defer this.mutex.Unlock()
 
@@ -72,9 +77,8 @@ func (this *Client) Send(req *requestInfo) {
 
 
 func (this *Client) input() {
-	ret := string(this.conn.readToCRLF())
 	req := <- this.reqsPending
-	req.reply.Value = ret
+	readReply(this.conn.readBuffer, &req.reply)
 	req.done()
 }
 
@@ -85,14 +89,14 @@ func NewClient(network, addr string, timeout time.Duration) (client *Client, err
 	}
 
 	client = &Client{conn: connection}
-	client.reqsPending = make(chan *requestInfo, 100)
+	client.reqsPending = make(chan *RequestInfo, 100)
 
 	go client.input()
 
 	return client, err
 }
 
-func writeReqToBuf(buf *bytes.Buffer, req *requestInfo) (str string, err error) {
+func writeReqToBuf(buf *bytes.Buffer, req *RequestInfo) (str string, err error) {
 	buf.Reset()
 
 	//写入参数个数

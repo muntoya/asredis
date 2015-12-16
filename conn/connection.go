@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 	"time"
-	"github.com/muntoya/asredis/common"
 )
 
 type Connection struct {
@@ -23,23 +22,6 @@ func (this *Connection) String() string {
 
 func (this *Connection) Close() error {
 	return this.conn.Close()
-}
-
-func (this *Connection) readToCRLF() []byte {
-	buf, e := this.readBuffer.ReadBytes(cr_byte)
-	if e != nil {
-		panic(common.NewRedisErrorf("readToCRLF - ReadBytes", e))
-	}
-
-	var b byte
-	b, e = this.readBuffer.ReadByte()
-	if e != nil {
-		panic(common.NewRedisErrorf("readToCRLF - ReadByte", e))
-	}
-	if b != lf_byte {
-		e = common.NewRedisError("<BUG> Expecting a Linefeed byte here!")
-	}
-	return buf[0 : len(buf)-1]
 }
 
 func (this *Connection) send(str string) {

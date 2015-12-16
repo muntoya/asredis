@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 //	"runtime/debug"
+	"fmt"
 )
 
 func TestClient(t *testing.T) {
@@ -20,5 +21,6 @@ func TestClient(t *testing.T) {
 	}
 
 	req := client.Go(nil, "SET", "int", 1)
-	<- req.Done
+	reply := req.GetReply()
+	fmt.Println(reply.Value)
 }
