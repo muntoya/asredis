@@ -33,7 +33,7 @@ type Client struct {
 	reqsPending	chan *requestInfo
 }
 
-func (this *Client) Go(cmd string, args []interface{}, done chan *requestInfo) *requestInfo {
+func (this *Client) Go(done chan *requestInfo, cmd string, args ...interface{}) *requestInfo {
 	req := new(requestInfo)
 
 	if done == nil {
@@ -55,7 +55,6 @@ func (this *Client) Go(cmd string, args []interface{}, done chan *requestInfo) *
 
 func (this *Client) Send(req *requestInfo) {
 	str, err := writeReqToBuf(&this.cmdBuf, req)
-	fmt.Println(str)
 	if err == nil {
 		this.conn.send(str)
 		this.reqsPending <- req
@@ -76,7 +75,7 @@ func (this *Client) input() {
 func NewClient(network, addr string, timeout time.Duration) (client *Client, err error) {
 	connection, err := DialTimeout(network, addr, timeout)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	client = &Client{conn: connection}
@@ -90,17 +89,20 @@ func NewClient(network, addr string, timeout time.Duration) (client *Client, err
 func writeReqToBuf(buf *bytes.Buffer, req *requestInfo) (str string, err error) {
 	buf.Reset()
 
+	//写入参数个数
 	argsCnt := len(req.args) + 1
 	buf.WriteByte(count_byte)
 	buf.WriteString(strconv.Itoa(argsCnt))
 	buf.Write(cr_lf)
 
+	//写入命令
 	buf.WriteByte(size_byte)
 	buf.WriteString(strconv.Itoa(len(req.cmd)))
 	buf.Write(cr_lf)
 	buf.WriteString(req.cmd)
 	buf.Write(cr_lf)
 
+	//写入参数
 	for _, arg := range req.args {
 		v := fmt.Sprint(arg)
 		buf.WriteByte(size_byte)

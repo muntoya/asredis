@@ -4,7 +4,6 @@ import (
 	"testing"
 	"time"
 //	"runtime/debug"
-//	"fmt"
 )
 
 func TestClient(t *testing.T) {
@@ -17,9 +16,9 @@ func TestClient(t *testing.T) {
 	client, err := NewClient("tcp", "127.0.0.1:6379", time.Second * 10)
 
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
-	req := client.Go("SET", []interface{}{"int", 1}, nil)
+	req := client.Go(nil, "SET", "int", 1)
 	<- req.Done
 }
