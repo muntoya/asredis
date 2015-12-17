@@ -1,7 +1,6 @@
 package conn
 
 import (
-	"io"
 	"bufio"
 	"strconv"
 	"bytes"
@@ -114,22 +113,6 @@ func readReply(io *bufio.Reader, reply *Reply)  error {
 	}
 
 	return nil
-}
-
-func sendRequest(w io.Writer, data []byte) {
-	loginfo := "sendRequest"
-	if w == nil {
-		panic(common.NewRedisError("<BUG> %s() - nil Writer"))
-	}
-
-	n, e := w.Write(data)
-	if e != nil {
-		panic(common.NewRedisErrorf("%s() - connection Write wrote %d bytes only.", loginfo, n))
-	}
-
-	if n < len(data) {
-		panic(common.NewRedisErrorf("%s() - connection Write wrote %d bytes only.", loginfo, n))
-	}
 }
 
 func writeReqToBuf(buf *bytes.Buffer, req *RequestInfo) (b []byte, err error) {
