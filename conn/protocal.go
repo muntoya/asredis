@@ -132,7 +132,7 @@ func sendRequest(w io.Writer, data []byte) {
 	}
 }
 
-func writeReqToBuf(buf *bytes.Buffer, req *RequestInfo) (str string, err error) {
+func writeReqToBuf(buf *bytes.Buffer, req *RequestInfo) (b []byte, err error) {
 	buf.Reset()
 
 	//写入参数个数
@@ -159,5 +159,5 @@ func writeReqToBuf(buf *bytes.Buffer, req *RequestInfo) (str string, err error) 
 		buf.Write(cr_lf)
 	}
 
-	return buf.String(), nil
+	return buf.Bytes(), nil
 }

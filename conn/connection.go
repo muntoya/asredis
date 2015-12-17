@@ -24,8 +24,8 @@ func (this *Connection) Close() error {
 	return this.conn.Close()
 }
 
-func (this *Connection) send(str string) {
-	this.writeBuffer.WriteString(str)
+func (this *Connection) send(b []byte) {
+	this.writeBuffer.Write(b)
 	this.writeBuffer.Flush()
 }
 

@@ -64,9 +64,9 @@ func (this *Client) Send(req *RequestInfo) {
 	this.mutex.Lock()
 	defer this.mutex.Unlock()
 
-	str, err := writeReqToBuf(&this.cmdBuf, req)
+	b, err := writeReqToBuf(&this.cmdBuf, req)
 	if err == nil {
-		this.conn.send(str)
+		this.conn.send(b)
 		this.reqsPending <- req
 	} else {
 		req.err = err
