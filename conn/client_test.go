@@ -8,18 +8,35 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var client *Client
-
 func TestClient(t *testing.T) {
-	var err error
-	client, err = NewClient("tcp", "127.0.0.1:6379", time.Second * 10)
+	client, err := NewClient("tcp", "127.0.0.1:6379", time.Second * 10)
+	defer client.Close()
+
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	req := client.Go(nil, "SET", "int", 1)
-	reply := req.GetReply()
+	reply, _ := req.GetReply()
 
 	assert.Equal(t, reply.Type, STRING)
 	assert.Equal(t, reply.Value, "OK")
+
+	req = client.Go(nil, "SET", "int", 1)
+	reply, _ = req.GetReply()
+}
+
+func TestError(t *testing.T) {
+	client, err := NewClient("tcp", "127.0.0.1:6379", time.Second * 10)
+	defer client.Close()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+//	for i:= 0; i < 5; i++ {
+//		req := client.Go(nil, "SET", "int", 1)
+//		req.GetReply()
+//		time.Sleep(time.Second * 1)
+//	}
 }

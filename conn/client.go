@@ -26,13 +26,13 @@ func (this *RequestInfo) done() {
 	this.Done <- this
 }
 
-func (this *RequestInfo) GetReply() *Reply {
+func (this *RequestInfo) GetReply() (*Reply, error) {
 	<- this.Done
-	return &this.reply
+	return &this.reply, this.err
 }
 
 type Client struct {
-	conn		*Connection
+	*Connection
 
 	mutex		sync.Mutex
 
@@ -66,7 +66,7 @@ func (this *Client) Send(req *RequestInfo) {
 
 	b, err := writeReqToBuf(&this.cmdBuf, req)
 	if err == nil {
-		this.conn.send(b)
+		this.send(b)
 		this.reqsPending <- req
 	} else {
 		req.err = err
@@ -77,7 +77,7 @@ func (this *Client) Send(req *RequestInfo) {
 
 func (this *Client) input() {
 	req := <- this.reqsPending
-	readReply(this.conn.readBuffer, &req.reply)
+	readReply(this.readBuffer, &req.reply)
 	req.done()
 }
 
@@ -87,7 +87,7 @@ func NewClient(network, addr string, timeout time.Duration) (client *Client, err
 		return nil, err
 	}
 
-	client = &Client{conn: connection}
+	client = &Client{Connection: connection}
 	client.reqsPending = make(chan *RequestInfo, 100)
 
 	go client.input()
