@@ -4,7 +4,8 @@ import (
 	"io"
 	"bufio"
 	"strconv"
-//	"fmt"
+	"bytes"
+	"fmt"
 	"github.com/muntoya/asredis/common"
 )
 
@@ -50,7 +51,7 @@ func readToCRLF(io *bufio.Reader) []byte {
 	return buf[0 : len(buf)-1]
 }
 
-func readReply(io *bufio.Reader, reply *Reply) {
+func readReply(io *bufio.Reader, reply *Reply)  error {
 	b := readToCRLF(io)
 
 	switch  v := string(b[1:]); b[0] {
@@ -66,7 +67,7 @@ func readReply(io *bufio.Reader, reply *Reply) {
 		reply.Type = INTEGER
 		i, err := strconv.Atoi(string(v))
 		if err != nil {
-			panic(common.NewRedisErrorf("readReply: atoi can't convert %s", v))
+			return err
 		} else {
 			reply.Value = i
 		}
@@ -74,7 +75,7 @@ func readReply(io *bufio.Reader, reply *Reply) {
 	case size_byte:
 		len, err := strconv.Atoi(v)
 		if err != nil {
-			panic(common.NewRedisErrorf("readReply: atoi can't convert %s", v))
+			return err
 		}
 		if len == -1 {
 			reply.Type = NIL
@@ -86,7 +87,7 @@ func readReply(io *bufio.Reader, reply *Reply) {
 	case array_byte:
 		len, err :=  strconv.Atoi(v)
 		if err != nil {
-			panic(common.NewRedisErrorf("readReply: atoi can't convert %s", v))
+			return err
 		}
 
 		reply.Array = make([]interface{}, len)
@@ -96,7 +97,7 @@ func readReply(io *bufio.Reader, reply *Reply) {
 			case num_byte:
 				ele, err := strconv.Atoi(string(s[1:]))
 				if err != nil {
-					panic(common.NewRedisErrorf("readReply: atoi can't convert %s", v))
+					return err
 				}
 				reply.Array[i] = ele
 			case size_byte:
@@ -104,13 +105,15 @@ func readReply(io *bufio.Reader, reply *Reply) {
 				reply.Array[i] = ele
 
 			default:
-				panic(common.NewRedisErrorf("readReply: atoi can't convert %s", s[0]))
+				return err
 			}
 		}
 
 	default:
-		panic(common.NewRedisErrorf("readReply: can parse type %s", b))
+		return common.NewRedisErrorf("readReply: can parse type %s", b)
 	}
+
+	return nil
 }
 
 func sendRequest(w io.Writer, data []byte) {
@@ -129,4 +132,32 @@ func sendRequest(w io.Writer, data []byte) {
 	}
 }
 
+func writeReqToBuf(buf *bytes.Buffer, req *RequestInfo) (str string, err error) {
+	buf.Reset()
 
+	//写入参数个数
+	argsCnt := len(req.args) + 1
+	buf.WriteByte(array_byte)
+	buf.WriteString(strconv.Itoa(argsCnt))
+	buf.Write(cr_lf)
+
+	//写入命令
+	buf.WriteByte(size_byte)
+	buf.WriteString(strconv.Itoa(len(req.cmd)))
+	buf.Write(cr_lf)
+	buf.WriteString(req.cmd)
+	buf.Write(cr_lf)
+
+	//写入参数
+	for _, arg := range req.args {
+		v := fmt.Sprint(arg)
+		buf.WriteByte(size_byte)
+		buf.WriteString(strconv.Itoa(len(v)))
+		buf.Write(cr_lf)
+
+		buf.WriteString(v)
+		buf.Write(cr_lf)
+	}
+
+	return buf.String(), nil
+}

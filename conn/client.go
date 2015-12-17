@@ -3,9 +3,7 @@ package conn
 import (
 	"time"
 	"log"
-	"fmt"
 	"bytes"
-	"strconv"
 	"sync"
 )
 
@@ -95,34 +93,4 @@ func NewClient(network, addr string, timeout time.Duration) (client *Client, err
 	go client.input()
 
 	return client, err
-}
-
-func writeReqToBuf(buf *bytes.Buffer, req *RequestInfo) (str string, err error) {
-	buf.Reset()
-
-	//写入参数个数
-	argsCnt := len(req.args) + 1
-	buf.WriteByte(array_byte)
-	buf.WriteString(strconv.Itoa(argsCnt))
-	buf.Write(cr_lf)
-
-	//写入命令
-	buf.WriteByte(size_byte)
-	buf.WriteString(strconv.Itoa(len(req.cmd)))
-	buf.Write(cr_lf)
-	buf.WriteString(req.cmd)
-	buf.Write(cr_lf)
-
-	//写入参数
-	for _, arg := range req.args {
-		v := fmt.Sprint(arg)
-		buf.WriteByte(size_byte)
-		buf.WriteString(strconv.Itoa(len(v)))
-		buf.Write(cr_lf)
-
-		buf.WriteString(v)
-		buf.Write(cr_lf)
-	}
-
-	return buf.String(), nil
 }
