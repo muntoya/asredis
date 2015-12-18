@@ -22,31 +22,32 @@ const (
 
 var cr_lf = []byte{cr_byte, lf_byte}
 
-type ResponseType int
+type ResponseType byte
 
 const (
-	STRING ResponseType = iota
+	NIL ResponseType = iota
+	STRING
 	ERROR
 	INTEGER
 	BULK
-	NIL
 	ARRAY
 )
 
 func readToCRLF(io *bufio.Reader) []byte {
 	buf, e := io.ReadBytes(cr_byte)
 	if e != nil {
-		panic(common.NewRedisErrorf("readToCRLF - ReadBytes", e))
+		panic(common.NewRedisErrorf("readToCRLF - ReadBytes %s", e))
 	}
 
 	var b byte
 	b, e = io.ReadByte()
 	if e != nil {
-		panic(common.NewRedisErrorf("readToCRLF - ReadByte", e))
+		panic(common.NewRedisErrorf("readToCRLF - ReadByte %s", e))
 	}
 	if b != lf_byte {
 		e = common.NewRedisError("<BUG> Expecting a Linefeed byte here!")
 	}
+
 	return buf[0 : len(buf)-1]
 }
 
@@ -72,22 +73,22 @@ func readReply(io *bufio.Reader, reply *Reply)  error {
 		}
 
 	case size_byte:
+		reply.Type = INTEGER
 		len, err := strconv.Atoi(v)
 		if err != nil {
 			return err
 		}
-		if len == -1 {
-			reply.Type = NIL
-		} else {
-			s := readToCRLF(io)
-			reply.Value = string(s[1:])
-		}
+
+		s := readToCRLF(io)
+		reply.Value = string(s[0:len])
 
 	case array_byte:
 		len, err :=  strconv.Atoi(v)
 		if err != nil {
 			return err
 		}
+
+		reply.Type = ARRAY
 
 		reply.Array = make([]interface{}, len)
 		for i := 0; i < len; i++ {

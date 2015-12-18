@@ -5,6 +5,7 @@ import (
 	"log"
 	"bytes"
 	"sync"
+//	"fmt"
 )
 
 
@@ -76,9 +77,11 @@ func (this *Client) Send(req *RequestInfo) {
 
 
 func (this *Client) input() {
-	req := <- this.reqsPending
-	readReply(this.readBuffer, &req.reply)
-	req.done()
+	for {
+		req := <-this.reqsPending
+		readReply(this.readBuffer, &req.reply)
+		req.done()
+	}
 }
 
 func NewClient(network, addr string, timeout time.Duration) (client *Client, err error) {

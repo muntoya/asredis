@@ -18,12 +18,14 @@ func TestClient(t *testing.T) {
 
 	req := client.Go(nil, "SET", "int", 1)
 	reply, _ := req.GetReply()
+	t.Log(reply.Type, reply.Value)
 
 	assert.Equal(t, reply.Type, STRING)
 	assert.Equal(t, reply.Value, "OK")
 
-	req = client.Go(nil, "SET", "int", 1)
+	req = client.Go(nil, "GET", "int")
 	reply, _ = req.GetReply()
+	t.Log(reply.Type, reply.Value)
 }
 
 func TestError(t *testing.T) {
