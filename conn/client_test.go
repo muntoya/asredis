@@ -3,7 +3,7 @@ package conn
 import (
 	"time"
 //	"runtime/debug"
-
+	"fmt"
 	"testing"
 	"github.com/stretchr/testify/assert"
 )
@@ -36,9 +36,15 @@ func TestError(t *testing.T) {
 		t.Fatal(err)
 	}
 
-//	for i:= 0; i < 5; i++ {
-//		req := client.Go(nil, "SET", "int", 1)
-//		req.GetReply()
-//		time.Sleep(time.Second * 1)
-//	}
+	go func() {
+		time.Sleep(time.Second * 2)
+		client.Close()
+	}()
+
+	for i:= 0; i < 5; i++ {
+		req := client.Go(nil, "SET", "int", 1)
+		reply, _ := req.GetReply()
+		fmt.Println(reply.Type, reply.Value)
+		time.Sleep(time.Second * 1)
+	}
 }

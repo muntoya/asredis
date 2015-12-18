@@ -34,24 +34,26 @@ const (
 )
 
 func readToCRLF(io *bufio.Reader) []byte {
-	buf, e := io.ReadBytes(cr_byte)
-	if e != nil {
-		panic(common.NewRedisErrorf("readToCRLF - ReadBytes %s", e))
+	buf, err := io.ReadBytes(cr_byte)
+	if err != nil {
+		panic(err)
 	}
 
 	var b byte
-	b, e = io.ReadByte()
-	if e != nil {
-		panic(common.NewRedisErrorf("readToCRLF - ReadByte %s", e))
+	b, err = io.ReadByte()
+	if err != nil {
+		panic(err)
 	}
+
 	if b != lf_byte {
-		e = common.NewRedisError("<BUG> Expecting a Linefeed byte here!")
+		panic(common.ErrExpectingLinefeed)
 	}
 
 	return buf[0 : len(buf)-1]
 }
 
 func readReply(io *bufio.Reader, reply *Reply)  error {
+
 	b := readToCRLF(io)
 
 	switch  v := string(b[1:]); b[0] {
@@ -110,7 +112,7 @@ func readReply(io *bufio.Reader, reply *Reply)  error {
 		}
 
 	default:
-		return common.NewRedisErrorf("readReply: can parse type %s", b)
+		return common.ErrUnexpectedReplyType
 	}
 
 	return nil

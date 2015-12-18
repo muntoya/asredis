@@ -1,20 +1,8 @@
 package common
 
-import "fmt"
+import "errors"
 
-type RedisError struct {
-	msg string
-}
-
-func (this RedisError) Error() string {
-
-	return fmt.Sprintf("REDIS_ERROR - %s", this.msg)
-}
-
-func NewRedisError(msg string) error {
-	return RedisError{msg}
-}
-
-func NewRedisErrorf(format string, args ...interface{}) error {
-	return NewRedisError(fmt.Sprintf(format, args...))
-}
+var (
+	ErrExpectingLinefeed = errors.New("redis: expecting a linefeed byte")
+	ErrUnexpectedReplyType = errors.New("redis: can't parse reply")
+)
