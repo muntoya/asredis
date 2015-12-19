@@ -34,6 +34,14 @@ func (this *RequestInfo) GetReply() (*Reply, error) {
 	return &this.reply, this.err
 }
 
+
+type commandType byte
+
+const (
+	cmdReconnect commandType = iota
+	cmdShutdown
+)
+
 type Client struct {
 	net.Conn
 	readBuffer  *bufio.Reader
@@ -47,6 +55,9 @@ type Client struct {
 
 	cmdBuf      bytes.Buffer
 	reqsPending chan *RequestInfo
+
+	cmdChan		chan commandType
+	connected	bool
 }
 
 func (this *Client) String() string {
@@ -55,6 +66,13 @@ func (this *Client) String() string {
 
 func (this *Client) Connect() (err error) {
 	this.Conn, err =  net.DialTimeout(this.Network, this.Addr, this.timeout)
+	if err != nil {
+		return
+	}
+
+	this.readBuffer = bufio.NewReader(this.Conn)
+	this.writeBuffer = bufio.NewWriter(this.Conn)
+
 	return
 }
 
@@ -84,16 +102,17 @@ func (this *Client) Go(done chan *RequestInfo, cmd string, args ...interface{}) 
 	req.args = args
 	req.Done = done
 
-	this.Send(req)
+	this.SendRequest(req)
 
 	return req
 }
 
-func (this *Client) Send(req *RequestInfo) {
+func (this *Client) SendRequest(req *RequestInfo) {
 	this.conMutex.Lock()
 	defer func() {
 		if err := recover(); err != nil {
 			req.err = err.(error)
+			this.cmdChan <- cmdReconnect
 		}
 		this.conMutex.Unlock()
 	}()
@@ -110,37 +129,50 @@ func (this *Client) Send(req *RequestInfo) {
 }
 
 func (this *Client) recover(err error) {
+	this.conMutex.Lock()
 	close(this.reqsPending)
 	for req := range this.reqsPending {
 		req.err = err
+		req.done()
 	}
-	this.Connect()
+
+	this.reqsPending = make(chan *RequestInfo, 100)
+	err = this.Connect()
+	fmt.Println(err)
+	this.conMutex.Unlock()
 }
 
 func (this *Client) input() {
 	for {
-		req := <-this.reqsPending
-		err := readReply(this.readBuffer, &req.reply)
-		req.err = err
-		req.done()
+		select {
+		case req := <-this.reqsPending:
+			err := readReply(this.readBuffer, &req.reply)
+			req.err = err
+			req.done()
+
+			if err != nil {
+				this.recover(err)
+			}
+		case cmd := <-this.cmdChan:
+			switch cmd {
+			case cmdReconnect:
+				this.recover(ErrNotConnected)
+			}
+		}
 	}
 }
 
 func NewClient(network, addr string, timeout time.Duration) (client *Client, err error) {
-	connection, err := net.DialTimeout(network, addr, timeout)
-	if err != nil {
-		return nil, err
-	}
-
 	client = &Client{
-		Conn:        connection,
-		readBuffer:  bufio.NewReader(connection),
 		timeout:     timeout,
-		writeBuffer: bufio.NewWriter(connection),
 		Network:     network,
 		Addr:        addr,
+		connected:   false,
 		reqsPending: make(chan *RequestInfo, 100),
+		cmdChan:	 make(chan commandType, 10),
 	}
+
+	err = client.Connect()
 
 	go client.input()
 

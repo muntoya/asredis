@@ -51,10 +51,10 @@ func readToCRLF(io *bufio.Reader) []byte {
 	return buf[0 : len(buf)-1]
 }
 
-func readReply(io *bufio.Reader, reply *Reply)  error {
+func readReply(io *bufio.Reader, reply *Reply)  (err error) {
 	defer func() {
-		if err := recover(); err != nil {
-
+		if e := recover(); e != nil {
+			err = e.(error)
 		}
 	}()
 
