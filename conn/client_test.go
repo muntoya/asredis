@@ -10,11 +10,11 @@ import (
 
 func TestClient(t *testing.T) {
 	client, err := NewClient("tcp", "127.0.0.1:6379", time.Second * 10)
-	defer client.Close()
 
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer client.Close()
 
 	req := client.Go(nil, "SET", "int", 1)
 	reply, _ := req.GetReply()
@@ -30,11 +30,11 @@ func TestClient(t *testing.T) {
 
 func TestError(t *testing.T) {
 	client, err := NewClient("tcp", "127.0.0.1:6379", time.Second * 10)
-	defer client.Close()
 
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer client.Close()
 
 	go func() {
 		time.Sleep(time.Second * 2)
