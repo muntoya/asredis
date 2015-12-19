@@ -1,4 +1,4 @@
-package common
+package asredis
 
 import "errors"
 

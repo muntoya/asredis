@@ -1,11 +1,10 @@
-package conn
+package asredis
 
 import (
 	"bufio"
 	"strconv"
 	"bytes"
 	"fmt"
-	"github.com/muntoya/asredis/common"
 )
 
 const (
@@ -46,7 +45,7 @@ func readToCRLF(io *bufio.Reader) []byte {
 	}
 
 	if b != lf_byte {
-		panic(common.ErrExpectingLinefeed)
+		panic(ErrExpectingLinefeed)
 	}
 
 	return buf[0 : len(buf)-1]
@@ -117,7 +116,7 @@ func readReply(io *bufio.Reader, reply *Reply)  error {
 		}
 
 	default:
-		return common.ErrUnexpectedReplyType
+		return ErrUnexpectedReplyType
 	}
 
 	return nil

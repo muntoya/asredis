@@ -1,4 +1,4 @@
-package conn
+package asredis
 
 import (
 	"time"
@@ -42,10 +42,11 @@ type Client struct {
 	Network     string
 	Addr        string
 
-	mutex		sync.Mutex
+	conMutex    sync.Mutex
+	reqMutex	sync.Mutex
 
-	cmdBuf		bytes.Buffer
-	reqsPending	chan *RequestInfo
+	cmdBuf      bytes.Buffer
+	reqsPending chan *RequestInfo
 }
 
 func (this *Client) String() string {
@@ -89,12 +90,12 @@ func (this *Client) Go(done chan *RequestInfo, cmd string, args ...interface{}) 
 }
 
 func (this *Client) Send(req *RequestInfo) {
-	this.mutex.Lock()
+	this.conMutex.Lock()
 	defer func() {
 		if err := recover(); err != nil {
 			req.err = err.(error)
 		}
-		this.mutex.Unlock()
+		this.conMutex.Unlock()
 	}()
 
 
@@ -113,7 +114,7 @@ func (this *Client) recover(err error) {
 	for req := range this.reqsPending {
 		req.err = err
 	}
-
+	this.Connect()
 }
 
 func (this *Client) input() {
