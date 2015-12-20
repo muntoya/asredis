@@ -73,6 +73,8 @@ func (this *Client) Connect() (err error) {
 	this.readBuffer = bufio.NewReader(this.Conn)
 	this.writeBuffer = bufio.NewWriter(this.Conn)
 
+	this.connected = true
+
 	return
 }
 
@@ -80,6 +82,11 @@ func (this *Client) Close() {
 	if this.Conn != nil {
 		this.Conn.Close()
 	}
+	this.connected = false
+}
+
+func (this *Client) IsConnected() {
+	return this.connected
 }
 
 func (this *Client) send(b []byte) {
@@ -113,6 +120,7 @@ func (this *Client) SendRequest(req *RequestInfo) {
 		if err := recover(); err != nil {
 			req.err = err.(error)
 			this.cmdChan <- cmdReconnect
+			this.connected = false
 		}
 		this.conMutex.Unlock()
 	}()
@@ -137,8 +145,8 @@ func (this *Client) recover(err error) {
 	}
 
 	this.reqsPending = make(chan *RequestInfo, 100)
-	err = this.Connect()
-	fmt.Println(err)
+	this.Connect()
+
 	this.conMutex.Unlock()
 }
 
@@ -157,6 +165,8 @@ func (this *Client) input() {
 			switch cmd {
 			case cmdReconnect:
 				this.recover(ErrNotConnected)
+			default:
+
 			}
 		}
 	}
