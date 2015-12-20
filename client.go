@@ -85,7 +85,7 @@ func (this *Client) Close() {
 	this.connected = false
 }
 
-func (this *Client) IsConnected() {
+func (this *Client) IsConnected() bool {
 	return this.connected
 }
 
