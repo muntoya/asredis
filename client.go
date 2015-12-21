@@ -90,6 +90,7 @@ func (this *Client) IsConnected() bool {
 }
 
 func (this *Client) send(b []byte) {
+	//TODO: 删除cmdBuf
 	this.writeBuffer.Write(b)
 	this.writeBuffer.Flush()
 }
@@ -117,6 +118,7 @@ func (this *Client) Go(done chan *RequestInfo, cmd string, args ...interface{}) 
 func (this *Client) SendRequest(req *RequestInfo) {
 	this.conMutex.Lock()
 	defer func() {
+		// FIXME: 可能需要将恢复放到pool中
 		if err := recover(); err != nil {
 			req.err = err.(error)
 			this.cmdChan <- cmdReconnect
