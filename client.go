@@ -9,6 +9,9 @@ import (
 	"fmt"
 )
 
+const (
+	intervalReconnect time.Duration = time.Second * 1
+)
 
 type Reply struct {
 	Type	ResponseType
@@ -34,11 +37,11 @@ func (this *RequestInfo) GetReply() (*Reply, error) {
 }
 
 
-type commandType byte
+type ctrlType byte
 
 const (
-	cmdReconnect commandType = iota
-	cmdShutdown
+	ctrlReconnect ctrlType = iota
+	ctrlShutdown
 )
 
 type Client struct {
@@ -50,21 +53,25 @@ type Client struct {
 	Addr        string
 
 	conMutex    sync.Mutex
-	reqMutex	sync.Mutex
+	reqMutex    sync.Mutex
 
 	reqsPending chan *RequestInfo
 
-	cmdChan		chan commandType
-	connected	bool
+	ctrlChan    chan ctrlType
+	connected   bool
+
+	lastConnect	time.Time
 }
 
 func (this *Client) String() string {
 	return fmt.Sprintf("%s %s", this.Network, this.Addr)
 }
 
-func (this *Client) Connect() (err error) {
+func (this *Client) Connect() {
+	var err error
 	this.Conn, err =  net.DialTimeout(this.Network, this.Addr, this.timeout)
 	if err != nil {
+		this.connected = false
 		return
 	}
 
@@ -72,8 +79,6 @@ func (this *Client) Connect() (err error) {
 	this.writeBuffer = bufio.NewWriter(this.Conn)
 
 	this.connected = true
-
-	return
 }
 
 func (this *Client) Close() {
@@ -87,8 +92,12 @@ func (this *Client) IsConnected() bool {
 	return this.connected
 }
 
-func (this *Client) send(req *RequestInfo) error {
-	return writeReqToBuf(this.writeBuffer, req)
+func (this *Client) sendReconnectCtrl() {
+	this.ctrlChan <- ctrlReconnect
+}
+
+func (this *Client) send(req *RequestInfo) {
+	writeReqToBuf(this.writeBuffer, req)
 }
 
 func (this *Client) Go(done chan *RequestInfo, cmd string, args ...interface{}) *RequestInfo {
@@ -117,24 +126,29 @@ func (this *Client) SendRequest(req *RequestInfo) {
 		// FIXME: 可能需要将恢复放到pool中
 		if err := recover(); err != nil {
 			req.err = err.(error)
-			this.cmdChan <- cmdReconnect
+			req.done()
 			this.connected = false
+			this.sendReconnectCtrl()
 		}
 		this.conMutex.Unlock()
 	}()
 
-
-	err := this.send(req)
-	if err == nil {
-		this.reqsPending <- req
-	} else {
-		req.err = err
-		req.done()
-	}
+	this.send(req)
+	this.reqsPending <- req
 }
 
 func (this *Client) recover(err error) {
 	this.conMutex.Lock()
+	defer this.conMutex.Unlock()
+
+	//一定时间段内只尝试重连一次
+	if this.lastConnect.Add(intervalReconnect).After(time.Now()) {
+		return
+	}
+
+	this.lastConnect = time.Now()
+
+	//清空等待的请求
 	close(this.reqsPending)
 	for req := range this.reqsPending {
 		req.err = err
@@ -143,8 +157,6 @@ func (this *Client) recover(err error) {
 
 	this.reqsPending = make(chan *RequestInfo, 100)
 	this.Connect()
-
-	this.conMutex.Unlock()
 }
 
 func (this *Client) input() {
@@ -158,9 +170,9 @@ func (this *Client) input() {
 			if err != nil {
 				this.recover(err)
 			}
-		case cmd := <-this.cmdChan:
+		case cmd := <-this.ctrlChan:
 			switch cmd {
-			case cmdReconnect:
+			case ctrlReconnect:
 				this.recover(ErrNotConnected)
 			default:
 
@@ -169,19 +181,20 @@ func (this *Client) input() {
 	}
 }
 
-func NewClient(network, addr string, timeout time.Duration) (client *Client, err error) {
+func NewClient(network, addr string, timeout time.Duration) (client *Client) {
 	client = &Client{
 		timeout:     timeout,
 		Network:     network,
 		Addr:        addr,
 		connected:   false,
 		reqsPending: make(chan *RequestInfo, 100),
-		cmdChan:	 make(chan commandType, 10),
+		ctrlChan:	 make(chan ctrlType, 10),
+		lastConnect: time.Now(),
 	}
 
-	err = client.Connect()
+	client.Connect()
 
 	go client.input()
 
-	return client, err
+	return client
 }

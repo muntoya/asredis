@@ -9,11 +9,8 @@ import (
 )
 
 func TestClient(t *testing.T) {
-	client, err := NewClient("tcp", "127.0.0.1:6379", time.Second * 10)
+	client:= NewClient("tcp", "127.0.0.1:6379", time.Second * 10)
 
-	if err != nil {
-		t.Fatal(err)
-	}
 	defer client.Close()
 
 	req := client.Go(nil, "SET", "int", 1)
@@ -29,15 +26,12 @@ func TestClient(t *testing.T) {
 }
 
 func TestError(t *testing.T) {
-	client, err := NewClient("tcp", "127.0.0.1:6379", time.Second * 10)
+	client := NewClient("tcp", "127.0.0.1:6379", time.Second * 10)
 
-	if err != nil {
-		t.Fatal(err)
-	}
 	defer client.Close()
 
 	go func() {
-		time.Sleep(time.Second * 2)
+		time.Sleep(time.Second * 1)
 		client.Close()
 	}()
 

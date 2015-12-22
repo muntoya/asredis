@@ -121,7 +121,7 @@ func readReply(io *bufio.Reader, reply *Reply)  (err error) {
 	return nil
 }
 
-func writeReqToBuf(buf *bufio.Writer, req *RequestInfo) (err error) {
+func writeReqToBuf(buf *bufio.Writer, req *RequestInfo) {
 	//写入参数个数
 	argsCnt := len(req.args) + 1
 	buf.WriteByte(array_byte)
@@ -147,5 +147,4 @@ func writeReqToBuf(buf *bufio.Writer, req *RequestInfo) (err error) {
 	}
 
 	buf.Flush()
-	return nil
 }
