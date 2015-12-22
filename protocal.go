@@ -3,7 +3,6 @@ package asredis
 import (
 	"bufio"
 	"strconv"
-	"bytes"
 	"fmt"
 )
 
@@ -122,9 +121,7 @@ func readReply(io *bufio.Reader, reply *Reply)  (err error) {
 	return nil
 }
 
-func writeReqToBuf(buf *bytes.Buffer, req *RequestInfo) (b []byte, err error) {
-	buf.Reset()
-
+func writeReqToBuf(buf *bufio.Writer, req *RequestInfo) (err error) {
 	//写入参数个数
 	argsCnt := len(req.args) + 1
 	buf.WriteByte(array_byte)
@@ -149,5 +146,6 @@ func writeReqToBuf(buf *bytes.Buffer, req *RequestInfo) (b []byte, err error) {
 		buf.Write(cr_lf)
 	}
 
-	return buf.Bytes(), nil
+	buf.Flush()
+	return nil
 }

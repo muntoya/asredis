@@ -3,7 +3,6 @@ package asredis
 import (
 	"time"
 	"log"
-	"bytes"
 	"sync"
 	"net"
 	"bufio"
@@ -53,7 +52,6 @@ type Client struct {
 	conMutex    sync.Mutex
 	reqMutex	sync.Mutex
 
-	cmdBuf      bytes.Buffer
 	reqsPending chan *RequestInfo
 
 	cmdChan		chan commandType
@@ -89,10 +87,8 @@ func (this *Client) IsConnected() bool {
 	return this.connected
 }
 
-func (this *Client) send(b []byte) {
-	//TODO: 删除cmdBuf
-	this.writeBuffer.Write(b)
-	this.writeBuffer.Flush()
+func (this *Client) send(req *RequestInfo) error {
+	return writeReqToBuf(this.writeBuffer, req)
 }
 
 func (this *Client) Go(done chan *RequestInfo, cmd string, args ...interface{}) *RequestInfo {
@@ -128,9 +124,8 @@ func (this *Client) SendRequest(req *RequestInfo) {
 	}()
 
 
-	b, err := writeReqToBuf(&this.cmdBuf, req)
+	err := this.send(req)
 	if err == nil {
-		this.send(b)
 		this.reqsPending <- req
 	} else {
 		req.err = err
