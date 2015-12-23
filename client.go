@@ -14,17 +14,17 @@ const (
 )
 
 type Reply struct {
-	Type	ResponseType
-	Value	interface{}
-	Array	[]interface{}
+	Type  ResponseType
+	Value interface{}
+	Array []interface{}
 }
 
 type RequestInfo struct {
-	cmd     string
-	args 	[]interface{}
-	err		error
-	reply	Reply
-	Done	chan *RequestInfo
+	cmd   string
+	args  []interface{}
+	err   error
+	reply Reply
+	Done  chan *RequestInfo
 }
 
 func (this *RequestInfo) done() {
@@ -32,7 +32,7 @@ func (this *RequestInfo) done() {
 }
 
 func (this *RequestInfo) GetReply() (*Reply, error) {
-	<- this.Done
+	<-this.Done
 	return &this.reply, this.err
 }
 
@@ -55,12 +55,16 @@ type Client struct {
 	conMutex    sync.Mutex
 	reqMutex    sync.Mutex
 
+	//等待发送的请求
+	reqsWaiting chan *RequestInfo
+
+	//等待接收回复的请求
 	reqsPending chan *RequestInfo
 
 	ctrlChan    chan ctrlType
 	connected   bool
 
-	lastConnect	time.Time
+	lastConnect time.Time
 }
 
 func (this *Client) String() string {
@@ -69,7 +73,7 @@ func (this *Client) String() string {
 
 func (this *Client) Connect() {
 	var err error
-	this.Conn, err =  net.DialTimeout(this.Network, this.Addr, this.timeout)
+	this.Conn, err = net.DialTimeout(this.Network, this.Addr, this.timeout)
 	if err != nil {
 		this.connected = false
 		return
@@ -159,25 +163,42 @@ func (this *Client) recover(err error) {
 	this.Connect()
 }
 
-func (this *Client) input() {
+func (this *Client) write(req *RequestInfo) {
+	this.send(req)
+}
+
+func (this *Client) control(ctrl ctrlType) {
+	switch ctrl {
+	case ctrlReconnect:
+		this.recover(ErrNotConnected)
+	default:
+
+	}
+}
+
+//处理发送请求和错误
+func (this *Client) processA() {
 	for {
 		select {
-		case req := <-this.reqsPending:
-			err := readReply(this.readBuffer, &req.reply)
-			req.err = err
-			req.done()
-
-			if err != nil {
-				this.recover(err)
-			}
-		case cmd := <-this.ctrlChan:
-			switch cmd {
-			case ctrlReconnect:
-				this.recover(ErrNotConnected)
-			default:
-
-			}
+		case req := <-this.reqsWaiting:
+			this.write(req)
+		case ctrl := <-this.ctrlChan:
+			this.control(ctrl)
 		}
+	}
+}
+
+func (this *Client) read() {
+	req := <-this.reqsPending
+	err := readReply(this.readBuffer, &req.reply)
+	req.err = err
+	req.done()
+}
+
+//处理读请求
+func (this *Client) processB() {
+	for {
+		this.read()
 	}
 }
 
@@ -188,13 +209,13 @@ func NewClient(network, addr string, timeout time.Duration) (client *Client) {
 		Addr:        addr,
 		connected:   false,
 		reqsPending: make(chan *RequestInfo, 100),
-		ctrlChan:	 make(chan ctrlType, 10),
+		ctrlChan:     make(chan ctrlType, 10),
 		lastConnect: time.Now(),
 	}
 
 	client.Connect()
 
-	go client.input()
+	go client.processB()
 
 	return client
 }
