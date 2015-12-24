@@ -3,7 +3,7 @@ package asredis
 import (
 	"time"
 //	"runtime/debug"
-	"fmt"
+//	"fmt"
 	"testing"
 	"github.com/stretchr/testify/assert"
 //	"runtime/debug"
@@ -15,19 +15,26 @@ func TestClient(t *testing.T) {
 	defer client.Close()
 
 	req := client.Go(nil, "SET", "int", 1)
-	reply, _ := req.GetReply()
-	t.Log(reply.Type, reply.Value)
+	reply, err := req.GetReply()
+	if err != nil {
+		t.Fatal(err)
+	} else {
+		t.Log(reply.Type, reply.Value)
+	}
 
 	assert.Equal(t, reply.Type, STRING)
 	assert.Equal(t, reply.Value, "OK")
 
 	req = client.Go(nil, "GET", "int")
-	reply, _ = req.GetReply()
-	t.Log(reply.Type, reply.Value)
+	reply, err = req.GetReply()
+	if err != nil {
+		t.Fatal(err)
+	} else {
+		t.Log(reply.Type, reply.Value)
+	}
 }
 
 func TestError(t *testing.T) {
-
 	client := NewClient("tcp", "127.0.0.1:6379", time.Second * 10)
 
 	defer client.Close()
@@ -41,9 +48,9 @@ func TestError(t *testing.T) {
 		req := client.Go(nil, "SET", "int", 1)
 		reply, err := req.GetReply()
 		if err == nil {
-			fmt.Println(reply.Type, reply.Value)
+			t.Log(reply.Type, reply.Value)
 		} else {
-			fmt.Println(err)
+			t.Log(err)
 		}
 		time.Sleep(time.Second * 1)
 	}

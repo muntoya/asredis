@@ -51,6 +51,10 @@ func readToCRLF(io *bufio.Reader) []byte {
 }
 
 func readReply(io *bufio.Reader)  (reply *Reply) {
+	if io == nil {
+		panic(ErrNotConnected)
+	}
+
 	b := readToCRLF(io)
 	reply = new(Reply)
 

@@ -7,7 +7,7 @@ import (
 	"net"
 	"bufio"
 	"fmt"
-//	"runtime/debug"
+	"runtime/debug"
 )
 
 const (
@@ -135,6 +135,10 @@ func (this *Client) SendRequest(req *RequestInfo) {
 		this.conMutex.Unlock()
 	}()
 
+	if !this.IsConnected() {
+		panic(ErrNotConnected)
+	}
+
 	this.send(req)
 	this.reqsPending <- req
 }
@@ -162,6 +166,12 @@ func (this *Client) recover(err error) {
 }
 
 func (this *Client) control() {
+	defer func() {
+		e := recover()
+		if e != nil {
+			fmt.Println(e.(error))
+		}
+	}()
 	ctrl := <-this.ctrlChan
 	switch ctrl {
 	case ctrlReconnect:
@@ -184,6 +194,7 @@ func (this *Client) read() {
 	defer func() {
 		if err := recover(); err != nil {
 			e := err.(error)
+			fmt.Println(e, string(debug.Stack()))
 			req.err = e
 			this.recover(e)
 		}
