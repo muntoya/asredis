@@ -7,7 +7,7 @@ import (
 	"net"
 	"bufio"
 	"fmt"
-	"runtime/debug"
+//	"runtime/debug"
 )
 
 const (
@@ -190,17 +190,19 @@ func (this *Client) processA() {
 }
 
 func (this *Client) read() {
+	req := <-this.reqsPending
+
 	defer func() {
 		if err := recover(); err != nil {
-			fmt.Println(err, string(debug.Stack()))
+			e := err.(error)
+			req.err = e
+			this.recover(e)
 		}
+
+		req.done()
 	}()
 
-	req := <-this.reqsPending
-	reply, err := readReply(this.readBuffer)
-	req.reply = reply
-	req.err = err
-	req.done()
+	req.reply = readReply(this.readBuffer)
 }
 
 //处理读请求

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"testing"
 	"github.com/stretchr/testify/assert"
+//	"runtime/debug"
 )
 
 func TestClient(t *testing.T) {
@@ -26,6 +27,7 @@ func TestClient(t *testing.T) {
 }
 
 func TestError(t *testing.T) {
+
 	client := NewClient("tcp", "127.0.0.1:6379", time.Second * 10)
 
 	defer client.Close()
@@ -37,8 +39,12 @@ func TestError(t *testing.T) {
 
 	for i:= 0; i < 5; i++ {
 		req := client.Go(nil, "SET", "int", 1)
-		reply, _ := req.GetReply()
-		fmt.Println(reply.Type, reply.Value)
+		reply, err := req.GetReply()
+		if err == nil {
+			fmt.Println(reply.Type, reply.Value)
+		} else {
+			fmt.Println(err)
+		}
 		time.Sleep(time.Second * 1)
 	}
 }
