@@ -50,14 +50,9 @@ func readToCRLF(io *bufio.Reader) []byte {
 	return buf[0 : len(buf)-1]
 }
 
-func readReply(io *bufio.Reader, reply *Reply)  (err error) {
-	defer func() {
-		if e := recover(); e != nil {
-			err = e.(error)
-		}
-	}()
-
+func readReply(io *bufio.Reader)  (reply *Reply) {
 	b := readToCRLF(io)
+	reply = new(Reply)
 
 	switch  v := string(b[1:]); b[0] {
 	case ok_byte:
@@ -72,7 +67,7 @@ func readReply(io *bufio.Reader, reply *Reply)  (err error) {
 		reply.Type = INTEGER
 		i, err := strconv.Atoi(string(v))
 		if err != nil {
-			return err
+			panic(err)
 		} else {
 			reply.Value = i
 		}
@@ -81,7 +76,7 @@ func readReply(io *bufio.Reader, reply *Reply)  (err error) {
 		reply.Type = INTEGER
 		len, err := strconv.Atoi(v)
 		if err != nil {
-			return err
+			panic(err)
 		}
 
 		s := readToCRLF(io)
@@ -90,7 +85,7 @@ func readReply(io *bufio.Reader, reply *Reply)  (err error) {
 	case array_byte:
 		len, err :=  strconv.Atoi(v)
 		if err != nil {
-			return err
+			panic(err)
 		}
 
 		reply.Type = ARRAY
@@ -102,7 +97,7 @@ func readReply(io *bufio.Reader, reply *Reply)  (err error) {
 			case num_byte:
 				ele, err := strconv.Atoi(string(s[1:]))
 				if err != nil {
-					return err
+					panic(err)
 				}
 				reply.Array[i] = ele
 			case size_byte:
@@ -110,15 +105,15 @@ func readReply(io *bufio.Reader, reply *Reply)  (err error) {
 				reply.Array[i] = ele
 
 			default:
-				return err
+				panic(ErrUnexpectedReplyType)
 			}
 		}
 
 	default:
-		return ErrUnexpectedReplyType
+		panic(ErrUnexpectedReplyType)
 	}
 
-	return nil
+	return
 }
 
 func writeReqToBuf(buf *bufio.Writer, req *RequestInfo) {

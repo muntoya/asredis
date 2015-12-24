@@ -7,6 +7,7 @@ import (
 	"net"
 	"bufio"
 	"fmt"
+	"runtime/debug"
 )
 
 const (
@@ -23,7 +24,7 @@ type RequestInfo struct {
 	cmd   string
 	args  []interface{}
 	err   error
-	reply Reply
+	reply *Reply
 	Done  chan *RequestInfo
 }
 
@@ -33,7 +34,7 @@ func (this *RequestInfo) done() {
 
 func (this *RequestInfo) GetReply() (*Reply, error) {
 	<-this.Done
-	return &this.reply, this.err
+	return this.reply, this.err
 }
 
 
@@ -189,8 +190,15 @@ func (this *Client) processA() {
 }
 
 func (this *Client) read() {
+	defer func() {
+		if err := recover(); err != nil {
+			fmt.Println(err, string(debug.Stack()))
+		}
+	}()
+
 	req := <-this.reqsPending
-	err := readReply(this.readBuffer, &req.reply)
+	reply, err := readReply(this.readBuffer)
+	req.reply = reply
 	req.err = err
 	req.done()
 }
@@ -215,6 +223,7 @@ func NewClient(network, addr string, timeout time.Duration) (client *Client) {
 
 	client.Connect()
 
+	go client.processA()
 	go client.processB()
 
 	return client

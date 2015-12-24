@@ -31,7 +31,7 @@ func TestError(t *testing.T) {
 	defer client.Close()
 
 	go func() {
-		time.Sleep(time.Second * 1)
+		time.Sleep(time.Second * 2)
 		client.Close()
 	}()
 
