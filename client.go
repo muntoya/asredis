@@ -56,9 +56,6 @@ type Client struct {
 	conMutex    sync.Mutex
 	reqMutex    sync.Mutex
 
-	//等待发送的请求
-	reqsWaiting chan *RequestInfo
-
 	//等待接收回复的请求
 	reqsPending chan *RequestInfo
 
@@ -164,28 +161,20 @@ func (this *Client) recover(err error) {
 	this.Connect()
 }
 
-func (this *Client) write(req *RequestInfo) {
-	this.send(req)
-}
-
-func (this *Client) control(ctrl ctrlType) {
+func (this *Client) control() {
+	ctrl := <-this.ctrlChan
 	switch ctrl {
 	case ctrlReconnect:
 		this.recover(ErrNotConnected)
 	default:
-
+		log.Panic(ErrUnexpectedCtrlType)
 	}
 }
 
-//处理发送请求和错误
+//处理控制请求
 func (this *Client) processA() {
 	for {
-		select {
-		case req := <-this.reqsWaiting:
-			this.write(req)
-		case ctrl := <-this.ctrlChan:
-			this.control(ctrl)
-		}
+		this.control()
 	}
 }
 
