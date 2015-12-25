@@ -7,7 +7,7 @@ import (
 	"net"
 	"bufio"
 	"fmt"
-	"runtime/debug"
+//	"runtime/debug"
 )
 
 const (
@@ -165,14 +165,7 @@ func (this *Client) recover(err error) {
 	this.Connect()
 }
 
-func (this *Client) control() {
-	defer func() {
-		e := recover()
-		if e != nil {
-			fmt.Println(e.(error))
-		}
-	}()
-	ctrl := <-this.ctrlChan
+func (this *Client) control(ctrl ctrlType) {
 	switch ctrl {
 	case ctrlReconnect:
 		this.recover(ErrNotConnected)
@@ -181,20 +174,22 @@ func (this *Client) control() {
 	}
 }
 
-//处理控制请求
-func (this *Client) processA() {
+//处理读请求和控制请求
+func (this *Client) process() {
 	for {
-		this.control()
+		select {
+		case ctrl := <-this.ctrlChan:
+			this.control(ctrl)
+		case req := <-this.reqsPending:
+			this.read(req)
+		}
 	}
 }
 
-func (this *Client) read() {
-	req := <-this.reqsPending
-
+func (this *Client) read(req *RequestInfo) {
 	defer func() {
 		if err := recover(); err != nil {
 			e := err.(error)
-			fmt.Println(e, string(debug.Stack()))
 			req.err = e
 			this.recover(e)
 		}
@@ -203,13 +198,6 @@ func (this *Client) read() {
 	}()
 
 	req.reply = readReply(this.readBuffer)
-}
-
-//处理读请求
-func (this *Client) processB() {
-	for {
-		this.read()
-	}
 }
 
 func NewClient(network, addr string, timeout time.Duration) (client *Client) {
@@ -225,8 +213,7 @@ func NewClient(network, addr string, timeout time.Duration) (client *Client) {
 
 	client.Connect()
 
-	go client.processA()
-	go client.processB()
+	go client.process()
 
 	return client
 }
