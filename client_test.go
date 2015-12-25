@@ -44,7 +44,7 @@ func TestError(t *testing.T) {
 		client.Close()
 	}()
 
-	for i:= 0; i < 5; i++ {
+	for i:= 0; i < 1; i++ {
 		req := client.Go(nil, "SET", "int", 1)
 		reply, err := req.GetReply()
 		if err == nil {

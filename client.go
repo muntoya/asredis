@@ -1,13 +1,13 @@
 package asredis
 
 import (
-	"time"
-	"log"
-	"sync"
-	"net"
 	"bufio"
 	"fmt"
-//	"runtime/debug"
+	"log"
+	"net"
+	"sync"
+	"time"
+	//	"runtime/debug"
 )
 
 const (
@@ -37,7 +37,6 @@ func (this *RequestInfo) GetReply() (*Reply, error) {
 	return this.reply, this.err
 }
 
-
 type ctrlType byte
 
 const (
@@ -52,15 +51,15 @@ type Client struct {
 	Network     string
 	Addr        string
 
-	conMutex    sync.Mutex
-	reqMutex    sync.Mutex
+	conMutex sync.Mutex
+	reqMutex sync.Mutex
 
 	//等待接收回复的请求
 	reqsPending chan *RequestInfo
 
-	ctrlChan    chan ctrlType
-	connected   bool
-	err			error
+	ctrlChan  chan ctrlType
+	connected bool
+	err       error
 
 	lastConnect time.Time
 }
@@ -71,7 +70,7 @@ func (this *Client) String() string {
 
 func (this *Client) Connect() {
 	var err error
-	this.Conn, err = net.DialTimeout(this.Network, this.Addr, time.Second * 1)
+	this.Conn, err = net.DialTimeout(this.Network, this.Addr, time.Second*1)
 	if err != nil {
 		this.connected = false
 		this.err = err
@@ -92,6 +91,8 @@ func (this *Client) Close() {
 	}
 	this.connected = false
 }
+
+func (this *Client) Ping()
 
 func (this *Client) IsConnected() bool {
 	return this.connected
@@ -209,7 +210,7 @@ func NewClient(network, addr string) (client *Client) {
 		Addr:        addr,
 		connected:   false,
 		reqsPending: make(chan *RequestInfo, 100),
-		ctrlChan:     make(chan ctrlType, 10),
+		ctrlChan:    make(chan ctrlType, 10),
 		lastConnect: time.Now(),
 	}
 
