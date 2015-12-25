@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	intervalReconnect time.Duration = time.Second * 1
+	intervalReconnect time.Duration = time.Second * 2
 )
 
 type Reply struct {
@@ -48,7 +48,6 @@ const (
 type Client struct {
 	net.Conn
 	readBuffer  *bufio.Reader
-	timeout     time.Duration
 	writeBuffer *bufio.Writer
 	Network     string
 	Addr        string
@@ -61,6 +60,7 @@ type Client struct {
 
 	ctrlChan    chan ctrlType
 	connected   bool
+	err			error
 
 	lastConnect time.Time
 }
@@ -71,9 +71,11 @@ func (this *Client) String() string {
 
 func (this *Client) Connect() {
 	var err error
-	this.Conn, err = net.DialTimeout(this.Network, this.Addr, this.timeout)
+	this.Conn, err = net.DialTimeout(this.Network, this.Addr, time.Second * 1)
 	if err != nil {
 		this.connected = false
+		this.err = err
+		log.Fatalf("can't connect to redis %v:%v, error:%v", this.Network, this.Addr, err)
 		return
 	}
 
@@ -81,6 +83,7 @@ func (this *Client) Connect() {
 	this.writeBuffer = bufio.NewWriter(this.Conn)
 
 	this.connected = true
+	this.err = nil
 }
 
 func (this *Client) Close() {
@@ -200,9 +203,8 @@ func (this *Client) read(req *RequestInfo) {
 	req.reply = readReply(this.readBuffer)
 }
 
-func NewClient(network, addr string, timeout time.Duration) (client *Client) {
+func NewClient(network, addr string) (client *Client) {
 	client = &Client{
-		timeout:     timeout,
 		Network:     network,
 		Addr:        addr,
 		connected:   false,

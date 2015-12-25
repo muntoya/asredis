@@ -10,7 +10,7 @@ import (
 )
 
 func TestClient(t *testing.T) {
-	client:= NewClient("tcp", "127.0.0.1:6379", time.Second * 10)
+	client:= NewClient("tcp", "127.0.0.1:6379")
 
 	defer client.Close()
 
@@ -35,7 +35,7 @@ func TestClient(t *testing.T) {
 }
 
 func TestError(t *testing.T) {
-	client := NewClient("tcp", "127.0.0.1:6379", time.Second * 10)
+	client := NewClient("tcp", "127.0.0.1:6379")
 
 	defer client.Close()
 
