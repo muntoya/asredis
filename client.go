@@ -33,10 +33,6 @@ func (this *RequestInfo) done() {
 	if this.Done != nil {
 		this.Done <- this
 	}
-
-	if this.err == nil {
-		fmt.Println(this.reply.Value)
-	}
 }
 
 func (this *RequestInfo) GetReply() (*Reply, error) {
@@ -57,6 +53,7 @@ type Client struct {
 	writeBuffer *bufio.Writer
 	Network     string
 	Addr        string
+	stop		bool
 
 	conMutex sync.Mutex
 	reqMutex sync.Mutex
@@ -97,6 +94,7 @@ func (this *Client) Close() {
 	if this.Conn != nil {
 		this.Conn.Close()
 	}
+	this.sendShutdownCtrl()
 	this.connected = false
 }
 
@@ -110,6 +108,10 @@ func (this *Client) IsConnected() bool {
 
 func (this *Client) sendReconnectCtrl() {
 	this.ctrlChan <- ctrlReconnect
+}
+
+func (this *Client) sendShutdownCtrl() {
+	this.ctrlChan <- ctrlShutdown
 }
 
 func (this *Client) send(req *RequestInfo) {
@@ -180,6 +182,8 @@ func (this *Client) control(ctrl ctrlType) {
 	switch ctrl {
 	case ctrlReconnect:
 		this.recover(ErrNotConnected)
+	case ctrlShutdown:
+		this.stop = true
 	default:
 		log.Panic(ErrUnexpectedCtrlType)
 	}
@@ -188,6 +192,10 @@ func (this *Client) control(ctrl ctrlType) {
 //处理读请求和控制请求
 func (this *Client) process() {
 	for {
+		if this.stop {
+			break
+		}
+
 		select {
 		case ctrl := <-this.ctrlChan:
 			this.control(ctrl)
@@ -217,6 +225,7 @@ func NewClient(network, addr string) (client *Client) {
 	client = &Client{
 		Network:     network,
 		Addr:        addr,
+		stop:		false,
 		connected:   false,
 		reqsPending: make(chan *RequestInfo, 100),
 		ctrlChan:    make(chan ctrlType, 10),

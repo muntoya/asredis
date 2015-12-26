@@ -7,6 +7,7 @@ import (
 	"testing"
 	"github.com/stretchr/testify/assert"
 //	"runtime/debug"
+	"fmt"
 )
 
 func TestClient(t *testing.T) {
@@ -14,7 +15,8 @@ func TestClient(t *testing.T) {
 
 	defer client.Close()
 
-	req := client.Go(nil, "SET", "int", 1)
+	c := make(chan *RequestInfo, 1)
+	req := client.Go(c, "SET", "int", 2)
 	reply, err := req.GetReply()
 	if err != nil {
 		t.Fatal(err)
@@ -25,13 +27,14 @@ func TestClient(t *testing.T) {
 	assert.Equal(t, reply.Type, STRING)
 	assert.Equal(t, reply.Value, "OK")
 
-	req = client.Go(nil, "GET", "int")
+	req = client.Go(c, "GET", "int")
 	reply, err = req.GetReply()
 	if err != nil {
 		t.Fatal(err)
 	} else {
 		t.Log(reply.Type, reply.Value)
 	}
+	fmt.Print("end")
 }
 
 func TestError(t *testing.T) {
@@ -39,13 +42,15 @@ func TestError(t *testing.T) {
 
 	defer client.Close()
 
+	c := make(chan *RequestInfo, 1)
+
 	go func() {
-		time.Sleep(time.Second * 2)
+		time.Sleep(time.Second * 5)
 		client.Close()
 	}()
 
-	for i:= 0; i < 1; i++ {
-		req := client.Go(nil, "SET", "int", 1)
+	for i:= 0; i < 5; i++ {
+		req := client.Go(c, "GET", "int")
 		reply, err := req.GetReply()
 		if err == nil {
 			t.Log(reply.Type, reply.Value)
