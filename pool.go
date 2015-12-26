@@ -1,18 +1,15 @@
 package asredis
 
 import (
-	"time"
+//	"time"
 	"sync/atomic"
 )
 
-const (
-	intervalPing time.Duration = time.Second * 1
-)
+
 
 // 用来保存连接至单个redis进程的多个连接
 type Pool struct {
 	clients     []*Client
-	pingTick    time.Time
 	replyChan   chan chan *RequestInfo
 	nConn       int32
 	nChan       int32
@@ -38,13 +35,12 @@ func NewPool(network, addr string, nConn, nChan int32) *Pool {
 
 	pool := &Pool{
 		clients:    clients,
-		pingTick:   time.Tick(intervalPing),
 		replyChan:  make(chan chan *RequestInfo, nChan),
 		nConn:      nConn,
 		nChan:      nChan,
 	}
 
-	for i := 0; i < nChan; i++ {
+	for i = 0; i < nChan; i++ {
 		pool.replyChan <- make(chan *RequestInfo, 1)
 	}
 

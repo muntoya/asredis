@@ -12,6 +12,7 @@ import (
 
 const (
 	intervalReconnect time.Duration = time.Second * 2
+	intervalPing      time.Duration = time.Second * 1
 )
 
 type Reply struct {
@@ -29,7 +30,13 @@ type RequestInfo struct {
 }
 
 func (this *RequestInfo) done() {
-	this.Done <- this
+	if this.Done != nil {
+		this.Done <- this
+	}
+
+	if this.err == nil {
+		fmt.Println(this.reply.Value)
+	}
 }
 
 func (this *RequestInfo) GetReply() (*Reply, error) {
@@ -60,6 +67,7 @@ type Client struct {
 	ctrlChan  chan ctrlType
 	connected bool
 	err       error
+	pingTick  <-chan time.Time
 
 	lastConnect time.Time
 }
@@ -92,7 +100,9 @@ func (this *Client) Close() {
 	this.connected = false
 }
 
-func (this *Client) Ping()
+func (this *Client) Ping() {
+	this.Go(nil, "PING")
+}
 
 func (this *Client) IsConnected() bool {
 	return this.connected
@@ -109,17 +119,15 @@ func (this *Client) send(req *RequestInfo) {
 func (this *Client) Go(done chan *RequestInfo, cmd string, args ...interface{}) *RequestInfo {
 	req := new(RequestInfo)
 
-	if done == nil {
-		done = make(chan *RequestInfo, 1)
-	} else {
+	if done != nil {
 		if cap(done) == 0 {
 			log.Panic("redis client: done channel is unbuffered")
 		}
+		req.Done = done
 	}
 
 	req.cmd = cmd
 	req.args = args
-	req.Done = done
 
 	this.SendRequest(req)
 
@@ -129,7 +137,6 @@ func (this *Client) Go(done chan *RequestInfo, cmd string, args ...interface{}) 
 func (this *Client) SendRequest(req *RequestInfo) {
 	this.conMutex.Lock()
 	defer func() {
-		// FIXME: 可能需要将恢复放到pool中
 		if err := recover(); err != nil {
 			req.err = err.(error)
 			req.done()
@@ -186,6 +193,8 @@ func (this *Client) process() {
 			this.control(ctrl)
 		case req := <-this.reqsPending:
 			this.read(req)
+		case <-this.pingTick:
+			this.Ping()
 		}
 	}
 }
@@ -211,6 +220,7 @@ func NewClient(network, addr string) (client *Client) {
 		connected:   false,
 		reqsPending: make(chan *RequestInfo, 100),
 		ctrlChan:    make(chan ctrlType, 10),
+		pingTick:    time.Tick(intervalPing),
 		lastConnect: time.Now(),
 	}
 
