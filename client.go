@@ -95,11 +95,6 @@ func (this *Client) Shutdown() {
 	this.conMutex.Lock()
 	defer this.conMutex.Unlock()
 
-	if this.Conn != nil {
-		this.Conn.Close()
-	}
-	this.clear(ErrNotRunning)
-
 	this.sendShutdownCtrl()
 	this.stop = true
 	this.connected = false
@@ -148,9 +143,6 @@ func (this *Client) Go(done chan *RequestInfo, cmd string, args ...interface{}) 
 }
 
 func (this *Client) SendRequest(req *RequestInfo) {
-	if this.IsShutDown() {
-		return
-	}
 
 	this.conMutex.Lock()
 	defer func() {
@@ -162,6 +154,10 @@ func (this *Client) SendRequest(req *RequestInfo) {
 		}
 		this.conMutex.Unlock()
 	}()
+
+	if this.IsShutDown() {
+		panic(ErrNotRunning)
+	}
 
 	if !this.IsConnected() {
 		panic(ErrNotConnected)
@@ -201,6 +197,10 @@ func (this *Client) control(ctrl ctrlType) {
 		this.recover(ErrNotConnected)
 	case ctrlShutdown:
 		this.stop = true
+		if this.Conn != nil {
+			this.Conn.Close()
+		}
+		this.clear(ErrNotRunning)
 	default:
 		log.Panic(ErrUnexpectedCtrlType)
 	}
@@ -217,9 +217,6 @@ func (this *Client) process() {
 		case ctrl := <-this.ctrlChan:
 			this.control(ctrl)
 		case req := <-this.reqsPending:
-			if this.IsShutDown() {
-				break
-			}
 			this.read(req)
 		case <-this.pingTick:
 			this.Ping()
@@ -228,6 +225,10 @@ func (this *Client) process() {
 }
 
 func (this *Client) read(req *RequestInfo) {
+	if this.IsShutDown() {
+		return
+	}
+
 	defer func() {
 		if err := recover(); err != nil {
 			e := err.(error)
