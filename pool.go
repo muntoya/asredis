@@ -5,8 +5,6 @@ import (
 	"sync/atomic"
 )
 
-
-
 // 用来保存连接至单个redis进程的多个连接
 type Pool struct {
 	clients     []*Client
@@ -23,6 +21,7 @@ func (this *Pool) Exec(cmd string, args ...interface{}) (reply *Reply, err error
 	c := <-this.replyChan
 	req := conn.Go(c, cmd, args...)
 	reply, err = req.GetReply()
+	this.replyChan <- c
 	return
 }
 

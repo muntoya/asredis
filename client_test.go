@@ -45,7 +45,7 @@ func TestError(t *testing.T) {
 	c := make(chan *RequestInfo, 1)
 
 	go func() {
-		time.Sleep(time.Second * 5)
+		time.Sleep(time.Millisecond * 50)
 		client.Close()
 	}()
 
@@ -57,6 +57,6 @@ func TestError(t *testing.T) {
 		} else {
 			t.Log(err)
 		}
-		time.Sleep(time.Second * 1)
+		time.Sleep(time.Millisecond * 10)
 	}
 }

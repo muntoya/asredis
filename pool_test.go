@@ -1,17 +1,25 @@
 package asredis
 
 import (
-	"time"
+//	"time"
 //	"runtime/debug"
 	"testing"
-//	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/assert"
 //	"runtime/debug"
 	"fmt"
+	"strconv"
 )
 
 func TestPool(t *testing.T) {
-	pool := NewPool("tcp", "127.0.0.1:6379", 5, 50)
-	reply, err := pool.Exec("get", "int")
-	time.Sleep(time.Second * 1)
-	fmt.Println(reply, err)
+	pool := NewPool("tcp", "127.0.0.1:6379", 5, 10)
+	for i := 0; i < 100; i++ {
+		_, err := pool.Exec("set", fmt.Sprintf("int%d", i), i)
+		assert.Equal(t, err, nil)
+	}
+
+	for i := 0; i < 100; i++ {
+		reply, err := pool.Exec("get", fmt.Sprintf("int%d", i))
+		assert.Equal(t, reply.Value, strconv.Itoa(i))
+		assert.Equal(t, err, nil)
+	}
 }
