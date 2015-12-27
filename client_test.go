@@ -12,8 +12,7 @@ import (
 
 func TestClient(t *testing.T) {
 	client:= NewClient("tcp", "127.0.0.1:6379")
-
-	defer client.Close()
+	defer client.Shutdown()
 
 	c := make(chan *RequestInfo, 1)
 	req := client.Go(c, "SET", "int", 2)
@@ -40,23 +39,18 @@ func TestClient(t *testing.T) {
 func TestError(t *testing.T) {
 	client := NewClient("tcp", "127.0.0.1:6379")
 
-	defer client.Close()
-
 	c := make(chan *RequestInfo, 1)
 
-	go func() {
-		time.Sleep(time.Millisecond * 50)
-		client.Close()
-	}()
-
 	for i:= 0; i < 5; i++ {
+		fmt.Println("go", i)
 		req := client.Go(c, "GET", "int")
 		reply, err := req.GetReply()
+		fmt.Println(i, err)
 		if err == nil {
 			t.Log(reply.Type, reply.Value)
 		} else {
 			t.Log(err)
 		}
-		time.Sleep(time.Millisecond * 10)
+		time.Sleep(time.Second * 1)
 	}
 }

@@ -7,11 +7,11 @@ import (
 	"net"
 	"sync"
 	"time"
-	//	"runtime/debug"
+//	"runtime/debug"
 )
 
 const (
-	intervalReconnect time.Duration = time.Second * 2
+	intervalReconnect time.Duration = time.Second * 1
 	intervalPing      time.Duration = time.Second * 1
 )
 
@@ -74,12 +74,13 @@ func (this *Client) String() string {
 }
 
 func (this *Client) Connect() {
+	this.connected = false
+
 	var err error
 	this.Conn, err = net.DialTimeout(this.Network, this.Addr, time.Second*1)
 	if err != nil {
-		this.connected = false
 		this.err = err
-		log.Fatalf("can't connect to redis %v:%v, error:%v", this.Network, this.Addr, err)
+		log.Printf("can't connect to redis %v:%v, error:%v", this.Network, this.Addr, err)
 		return
 	}
 
@@ -90,16 +91,26 @@ func (this *Client) Connect() {
 	this.err = nil
 }
 
-func (this *Client) Close() {
+func (this *Client) Shutdown() {
+	this.conMutex.Lock()
+	defer this.conMutex.Unlock()
+
 	if this.Conn != nil {
 		this.Conn.Close()
 	}
+	this.clear(ErrNotRunning)
+
 	this.sendShutdownCtrl()
+	this.stop = true
 	this.connected = false
 }
 
 func (this *Client) Ping() {
 	this.Go(nil, "PING")
+}
+
+func (this *Client) IsShutDown() bool {
+	return this.stop
 }
 
 func (this *Client) IsConnected() bool {
@@ -137,6 +148,10 @@ func (this *Client) Go(done chan *RequestInfo, cmd string, args ...interface{}) 
 }
 
 func (this *Client) SendRequest(req *RequestInfo) {
+	if this.IsShutDown() {
+		return
+	}
+
 	this.conMutex.Lock()
 	defer func() {
 		if err := recover(); err != nil {
@@ -166,16 +181,18 @@ func (this *Client) recover(err error) {
 	}
 
 	this.lastConnect = time.Now()
+	this.clear(err)
+	this.Connect()
+}
 
-	//清空等待的请求
+//清空等待的请求
+func (this *Client) clear(err error) {
 	close(this.reqsPending)
 	for req := range this.reqsPending {
 		req.err = err
 		req.done()
 	}
-
 	this.reqsPending = make(chan *RequestInfo, 100)
-	this.Connect()
 }
 
 func (this *Client) control(ctrl ctrlType) {
@@ -200,6 +217,9 @@ func (this *Client) process() {
 		case ctrl := <-this.ctrlChan:
 			this.control(ctrl)
 		case req := <-this.reqsPending:
+			if this.IsShutDown() {
+				break
+			}
 			this.read(req)
 		case <-this.pingTick:
 			this.Ping()
@@ -237,5 +257,5 @@ func NewClient(network, addr string) (client *Client) {
 
 	go client.process()
 
-	return client
+	return
 }
