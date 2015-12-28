@@ -11,6 +11,7 @@ import (
 )
 
 const (
+	connectTimeout    time.Duration = time.Second * 1
 	intervalReconnect time.Duration = time.Second * 1
 	intervalPing      time.Duration = time.Second * 1
 )
@@ -51,36 +52,36 @@ type Client struct {
 	net.Conn
 	readBuffer  *bufio.Reader
 	writeBuffer *bufio.Writer
-	Network     string
-	Addr        string
-	stop		bool
+	network     string
+	addr        string
+	stop        bool
 
-	conMutex sync.Mutex
-	reqMutex sync.Mutex
+	conMutex    sync.Mutex
+	reqMutex    sync.Mutex
 
 	//等待接收回复的请求
 	reqsPending chan *RequestInfo
 
-	ctrlChan  chan ctrlType
-	connected bool
-	err       error
-	pingTick  <-chan time.Time
+	ctrlChan    chan ctrlType
+	connected   bool
+	err         error
+	pingTick    <-chan time.Time
 
 	lastConnect time.Time
 }
 
 func (this *Client) String() string {
-	return fmt.Sprintf("%s %s", this.Network, this.Addr)
+	return fmt.Sprintf("%s %s", this.network, this.addr)
 }
 
 func (this *Client) Connect() {
 	this.connected = false
 
 	var err error
-	this.Conn, err = net.DialTimeout(this.Network, this.Addr, time.Second*1)
+	this.Conn, err = net.DialTimeout(this.network, this.addr, connectTimeout)
 	if err != nil {
 		this.err = err
-		log.Printf("can't connect to redis %v:%v, error:%v", this.Network, this.Addr, err)
+		log.Printf("can't connect to redis %v:%v, error:%v", this.network, this.addr, err)
 		return
 	}
 
@@ -244,8 +245,8 @@ func (this *Client) read(req *RequestInfo) {
 
 func NewClient(network, addr string) (client *Client) {
 	client = &Client{
-		Network:     network,
-		Addr:        addr,
+		network:     network,
+		addr:        addr,
 		stop:		false,
 		connected:   false,
 		reqsPending: make(chan *RequestInfo, 100),
