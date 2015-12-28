@@ -1,15 +1,25 @@
 package asredis
 
+import (
+	"time"
+)
+
+const (
+	subTimeout time.Duration = time.Second * 1
+)
+
 //订阅
 type PubsubClient struct {
 	*Client
 	replyChan chan *RequestInfo
+	subTick   <-chan time.Time
 }
 
 func NewPubsubClient(network, addr string) (pubsubClient *PubsubClient) {
 	pubsubClient = &PubsubClient{
-		Client: NewClient(network, addr),
-		replyChan:  make(chan *RequestInfo, 1),
+		Client:    NewClient(network, addr),
+		replyChan: make(chan *RequestInfo, 1),
+		subTick:   time.Tick(subTimeout),
 	}
 
 	go pubsubClient.process()
@@ -31,6 +41,8 @@ func (this *PubsubClient) UnSub(channel ...string) (err error) {
 
 func (this *PubsubClient) process() {
 	for {
-
+		select {
+		
+		}
 	}
 }
