@@ -25,6 +25,17 @@ func (this *Pool) Exec(cmd string, args ...interface{}) (reply *Reply, err error
 	return
 }
 
+func (this *Pool) Close() {
+	for _, c := range this.clients {
+		c.Close()
+	}
+
+	close(this.replyChan)
+	for _, c := range this.replyChan {
+		close(*c)
+	}
+}
+
 func NewPool(network, addr string, nConn, nChan int32) *Pool {
 	clients := make([]*Client, nConn)
 	var i int32 = 0

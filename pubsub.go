@@ -11,6 +11,9 @@ func NewPubsubClient(network, addr string) (pubsubClient *PubsubClient) {
 		Client: NewClient(network, addr),
 		replyChan:  make(chan *RequestInfo, 1),
 	}
+
+	go pubsubClient.process()
+
 	return pubsubClient
 }
 
@@ -26,4 +29,8 @@ func (this *PubsubClient) UnSub(channel ...string) (err error) {
 	return
 }
 
+func (this *PubsubClient) process() {
+	for {
 
+	}
+}
