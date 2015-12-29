@@ -27,13 +27,13 @@ func NewPubsubClient(network, addr string) (pubsubClient *PubsubClient) {
 	return pubsubClient
 }
 
-func (this *PubsubClient) Sub(channel ...string) (err error) {
+func (this *PubsubClient) Sub(channel ...interface{}) (err error) {
 	req := this.Go(this.replyChan, "SUBSCRIBE", channel...)
 	_, err = req.GetReply()
 	return
 }
 
-func (this *PubsubClient) UnSub(channel ...string) (err error) {
+func (this *PubsubClient) UnSub(channel ...interface{}) (err error) {
 	req := this.Go(this.replyChan, "UBSUBSCRIBE", channel...)
 	_, err = req.GetReply()
 	return
@@ -42,7 +42,7 @@ func (this *PubsubClient) UnSub(channel ...string) (err error) {
 func (this *PubsubClient) process() {
 	for {
 		select {
-		
+
 		}
 	}
 }

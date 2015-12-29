@@ -126,24 +126,12 @@ func (this *Client) send(req *RequestInfo) {
 }
 
 func (this *Client) Go(done chan *RequestInfo, cmd string, args ...interface{}) *RequestInfo {
-	req := new(RequestInfo)
-
-	if done != nil {
-		if cap(done) == 0 {
-			log.Panic("redis client: done channel is unbuffered")
-		}
-		req.Done = done
-	}
-
-	req.cmd = cmd
-	req.args = args
-
-	this.SendRequest(req)
-
+	req := newRequst(done, cmd, args...)
+	this.sendRequest(req, false)
 	return req
 }
 
-func (this *Client) SendRequest(req *RequestInfo) {
+func (this *Client) sendRequest(req *RequestInfo, onlyWait bool) {
 
 	this.conMutex.Lock()
 	defer func() {
@@ -164,8 +152,31 @@ func (this *Client) SendRequest(req *RequestInfo) {
 		panic(ErrNotConnected)
 	}
 
-	this.send(req)
+	if !onlyWait {
+		this.send(req)
+	}
 	this.reqsPending <- req
+}
+
+func (this *Client) PubSubWait(done chan *RequestInfo) {
+	req := new(RequestInfo)
+
+	if done != nil {
+		if cap(done) == 0 {
+			log.Panic("redis client: done channel is unbuffered")
+		}
+		req.Done = done
+	}
+
+	this.reqsPending <- req
+
+	return req
+}
+
+func (this *Client) PubSubSend(done chan *RequestInfo, cmd string, args ...interface{}) *RequestInfo {
+	req := newRequst(done, cmd, args...)
+	this.sendRequest(req, true)
+	return req
 }
 
 func (this *Client) recover(err error) {
@@ -260,4 +271,19 @@ func NewClient(network, addr string) (client *Client) {
 	go client.process()
 
 	return
+}
+
+func newRequst(done chan *RequestInfo, cmd string, args ...interface{}) (*RequestInfo) {
+	req := new(RequestInfo)
+
+	if done != nil {
+		if cap(done) == 0 {
+			log.Panic("redis client: done channel is unbuffered")
+		}
+		req.Done = done
+	}
+
+	req.cmd = cmd
+	req.args = args
+	return req
 }
