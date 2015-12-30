@@ -1,8 +1,8 @@
 package asredis
 
 import (
-	"time"
 	"fmt"
+	"time"
 )
 
 const (
@@ -11,17 +11,16 @@ const (
 
 //订阅
 type PubsubClient struct {
-	*Client
-	replyChan chan *RequestInfo
-	subTick   <-chan time.Time
-
+	redisClient *Client
+	replyChan   chan *RequestInfo
+	subTick     <-chan time.Time
 }
 
 func NewPubsubClient(network, addr string) (pubsubClient *PubsubClient) {
 	pubsubClient = &PubsubClient{
-		Client:    NewClient(network, addr),
-		replyChan: make(chan *RequestInfo, 1),
-		subTick:   time.Tick(subTimeout),
+		redisClient: NewClient(network, addr),
+		replyChan:   make(chan *RequestInfo, 1),
+		subTick:     time.Tick(subTimeout),
 	}
 
 	go pubsubClient.process()
@@ -30,20 +29,20 @@ func NewPubsubClient(network, addr string) (pubsubClient *PubsubClient) {
 }
 
 func (this *PubsubClient) Sub(channel ...interface{}) (err error) {
-	req := this.PubsubSend("SUBSCRIBE", channel...)
+	req := this.redisClient.PubsubSend("SUBSCRIBE", channel...)
 	_, err = req.GetReply()
 	return
 }
 
 func (this *PubsubClient) UnSub(channel ...interface{}) (err error) {
-	req := this.PubsubSend("UBSUBSCRIBE", channel...)
+	req := this.redisClient.PubsubSend("UBSUBSCRIBE", channel...)
 	_, err = req.GetReply()
 	return
 }
 
 func (this *PubsubClient) process() {
 	for {
-		req := this.PubsubWait(this.replyChan)
+		req := this.redisClient.PubsubWait(this.replyChan)
 		reply, err := req.GetReply()
 		fmt.Println(*reply, err)
 	}

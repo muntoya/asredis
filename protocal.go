@@ -106,7 +106,7 @@ func readReply(io *bufio.Reader)  (reply *Reply) {
 				reply.Array[i] = ele
 			case size_byte:
 				ele := readToCRLF(io)
-				reply.Array[i] = ele
+				reply.Array[i] = string(ele)
 
 			default:
 				panic(ErrUnexpectedReplyType)
