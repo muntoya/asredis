@@ -42,11 +42,11 @@ func TestError(t *testing.T) {
 	c := make(chan *RequestInfo, 1)
 
 	go func() {
-		time.Sleep(time.Second * 2)
+		time.Sleep(time.Second * 1)
 		client.Conn.Close()
 	}()
 
-	for i:= 0; i < 5; i++ {
+	for i:= 0; i < 3; i++ {
 		fmt.Println("go", i)
 		req := client.Go(c, "GET", "int")
 		reply, err := req.GetReply()

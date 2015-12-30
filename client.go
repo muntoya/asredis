@@ -131,7 +131,7 @@ func (this *Client) Go(done chan *RequestInfo, cmd string, args ...interface{}) 
 	return req
 }
 
-func (this *Client) sendRequest(req *RequestInfo, onlyWait bool) {
+func (this *Client) sendRequest(req *RequestInfo, onlySend bool) {
 
 	this.conMutex.Lock()
 	defer func() {
@@ -152,13 +152,13 @@ func (this *Client) sendRequest(req *RequestInfo, onlyWait bool) {
 		panic(ErrNotConnected)
 	}
 
-	if !onlyWait {
-		this.send(req)
+	this.send(req)
+	if !onlySend {
+		this.reqsPending <- req
 	}
-	this.reqsPending <- req
 }
 
-func (this *Client) PubSubWait(done chan *RequestInfo) {
+func (this *Client) PubsubWait(done chan *RequestInfo) *RequestInfo {
 	req := new(RequestInfo)
 
 	if done != nil {
@@ -173,8 +173,8 @@ func (this *Client) PubSubWait(done chan *RequestInfo) {
 	return req
 }
 
-func (this *Client) PubSubSend(done chan *RequestInfo, cmd string, args ...interface{}) *RequestInfo {
-	req := newRequst(done, cmd, args...)
+func (this *Client) PubsubSend(cmd string, args ...interface{}) *RequestInfo {
+	req := newRequst(nil, cmd, args...)
 	this.sendRequest(req, true)
 	return req
 }

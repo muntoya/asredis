@@ -31,8 +31,8 @@ func (this *Pool) Close() {
 	}
 
 	close(this.replyChan)
-	for _, c := range this.replyChan {
-		close(*c)
+	for c := range this.replyChan {
+		close(c)
 	}
 }
 

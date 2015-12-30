@@ -2,6 +2,7 @@ package asredis
 
 import (
 	"time"
+	"fmt"
 )
 
 const (
@@ -13,6 +14,7 @@ type PubsubClient struct {
 	*Client
 	replyChan chan *RequestInfo
 	subTick   <-chan time.Time
+
 }
 
 func NewPubsubClient(network, addr string) (pubsubClient *PubsubClient) {
@@ -28,21 +30,21 @@ func NewPubsubClient(network, addr string) (pubsubClient *PubsubClient) {
 }
 
 func (this *PubsubClient) Sub(channel ...interface{}) (err error) {
-	req := this.Go(this.replyChan, "SUBSCRIBE", channel...)
+	req := this.PubsubSend("SUBSCRIBE", channel...)
 	_, err = req.GetReply()
 	return
 }
 
 func (this *PubsubClient) UnSub(channel ...interface{}) (err error) {
-	req := this.Go(this.replyChan, "UBSUBSCRIBE", channel...)
+	req := this.PubsubSend("UBSUBSCRIBE", channel...)
 	_, err = req.GetReply()
 	return
 }
 
 func (this *PubsubClient) process() {
 	for {
-		select {
-
-		}
+		req := this.PubsubWait(this.replyChan)
+		reply, err := req.GetReply()
+		fmt.Println(*reply, err)
 	}
 }
