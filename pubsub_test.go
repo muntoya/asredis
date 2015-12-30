@@ -12,7 +12,6 @@ func TestPubsub(t *testing.T) {
 	clientSubpub.Sub("c1", "c2")
 
 	client := NewClient("tcp", "127.0.0.1:6379")
-
 	c := make(chan *RequestInfo, 1)
 	reply, err := client.Go(c, "PUBLISH", "c1", "haha").GetReply()
 	fmt.Println(reply, err)
