@@ -3,8 +3,8 @@ package asredis
 import (
 	"testing"
 //	"fmt"
-// 	"github.com/stretchr/testify/assert"
-	"fmt"
+	"github.com/stretchr/testify/assert"
+//	"fmt"
 )
 
 func TestPubsub(t *testing.T) {
@@ -13,7 +13,8 @@ func TestPubsub(t *testing.T) {
 
 	client := NewClient("tcp", "127.0.0.1:6379")
 	c := make(chan *RequestInfo, 1)
-	reply, err := client.Go(c, "PUBLISH", "c1", "haha").GetReply()
-	fmt.Println(reply, err)
-	client.Go(c, "PUBLISH", "c2", "heihei").GetReply()
+	_, err := client.Go(c, "PUBLISH", "c1", "haha").GetReply()
+	assert.Exactly(t, nil, err)
+	_, err = client.Go(c, "PUBLISH", "c2", "heihei").GetReply()
+	assert.Exactly(t, nil, err)
 }

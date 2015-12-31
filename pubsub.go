@@ -30,14 +30,12 @@ func NewPubsubClient(network, addr string) (pubsubClient *PubsubClient) {
 
 func (this *PubsubClient) Sub(channel ...interface{}) (err error) {
 	req := this.redisClient.PubsubSend("SUBSCRIBE", channel...)
-	_, err = req.GetReply()
-	return
+	return req.err
 }
 
 func (this *PubsubClient) UnSub(channel ...interface{}) (err error) {
 	req := this.redisClient.PubsubSend("UBSUBSCRIBE", channel...)
-	_, err = req.GetReply()
-	return
+	return req.err
 }
 
 func (this *PubsubClient) process() {
