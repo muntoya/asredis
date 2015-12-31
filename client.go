@@ -22,21 +22,21 @@ type Reply struct {
 	Array []interface{}
 }
 
-type RequestInfo struct {
+type Request struct {
 	cmd   string
 	args  []interface{}
 	err   error
 	reply *Reply
-	Done  chan *RequestInfo
+	Done  chan *Request
 }
 
-func (this *RequestInfo) done() {
+func (this *Request) done() {
 	if this.Done != nil {
 		this.Done <- this
 	}
 }
 
-func (this *RequestInfo) GetReply() (*Reply, error) {
+func (this *Request) GetReply() (*Reply, error) {
 	<-this.Done
 	return this.reply, this.err
 }
@@ -60,7 +60,7 @@ type Client struct {
 	reqMutex    sync.Mutex
 
 	//等待接收回复的请求
-	reqsPending chan *RequestInfo
+	reqsPending chan *Request
 
 	ctrlChan    chan ctrlType
 	connected   bool
@@ -121,17 +121,17 @@ func (this *Client) sendShutdownCtrl() {
 	this.ctrlChan <- ctrlShutdown
 }
 
-func (this *Client) send(req *RequestInfo) {
+func (this *Client) send(req *Request) {
 	writeReqToBuf(this.writeBuffer, req)
 }
 
-func (this *Client) Go(done chan *RequestInfo, cmd string, args ...interface{}) *RequestInfo {
+func (this *Client) Go(done chan *Request, cmd string, args ...interface{}) *Request {
 	req := newRequst(done, cmd, args...)
 	this.sendRequest(req, false)
 	return req
 }
 
-func (this *Client) sendRequest(req *RequestInfo, onlySend bool) {
+func (this *Client) sendRequest(req *Request, onlySend bool) {
 
 	this.conMutex.Lock()
 	defer func() {
@@ -158,8 +158,8 @@ func (this *Client) sendRequest(req *RequestInfo, onlySend bool) {
 	}
 }
 
-func (this *Client) PubsubWait(done chan *RequestInfo) *RequestInfo {
-	req := new(RequestInfo)
+func (this *Client) PubsubWait(done chan *Request) (*Reply, error) {
+	req := new(Request)
 
 	if done != nil {
 		if cap(done) == 0 {
@@ -170,10 +170,10 @@ func (this *Client) PubsubWait(done chan *RequestInfo) *RequestInfo {
 
 	this.reqsPending <- req
 
-	return req
+	return req.GetReply()
 }
 
-func (this *Client) PubsubSend(cmd string, args ...interface{}) *RequestInfo {
+func (this *Client) PubsubSend(cmd string, args ...interface{}) *Request {
 	req := newRequst(nil, cmd, args...)
 	this.sendRequest(req, true)
 	return req
@@ -200,7 +200,7 @@ func (this *Client) clear(err error) {
 		req.err = err
 		req.done()
 	}
-	this.reqsPending = make(chan *RequestInfo, 100)
+	this.reqsPending = make(chan *Request, 100)
 }
 
 func (this *Client) control(ctrl ctrlType) {
@@ -236,7 +236,7 @@ func (this *Client) process() {
 	}
 }
 
-func (this *Client) read(req *RequestInfo) {
+func (this *Client) read(req *Request) {
 	if this.IsShutDown() {
 		return
 	}
@@ -260,7 +260,7 @@ func NewClient(network, addr string) (client *Client) {
 		addr:        addr,
 		stop:		false,
 		connected:   false,
-		reqsPending: make(chan *RequestInfo, 100),
+		reqsPending: make(chan *Request, 100),
 		ctrlChan:    make(chan ctrlType, 10),
 		pingTick:    time.Tick(intervalPing),
 		lastConnect: time.Now(),
@@ -273,8 +273,8 @@ func NewClient(network, addr string) (client *Client) {
 	return
 }
 
-func newRequst(done chan *RequestInfo, cmd string, args ...interface{}) (*RequestInfo) {
-	req := new(RequestInfo)
+func newRequst(done chan *Request, cmd string, args ...interface{}) (*Request) {
+	req := new(Request)
 
 	if done != nil {
 		if cap(done) == 0 {

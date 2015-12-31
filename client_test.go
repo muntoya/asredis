@@ -14,7 +14,7 @@ func TestClient(t *testing.T) {
 	client:= NewClient("tcp", "127.0.0.1:6379")
 	defer client.Shutdown()
 
-	c := make(chan *RequestInfo, 1)
+	c := make(chan *Request, 1)
 	req := client.Go(c, "SET", "int", 2)
 	reply, err := req.GetReply()
 	if err != nil {
@@ -40,7 +40,7 @@ func TestError(t *testing.T) {
 	t.Skip("skip connnectiong loop")
 	client := NewClient("tcp", "127.0.0.1:6379")
 
-	c := make(chan *RequestInfo, 1)
+	c := make(chan *Request, 1)
 
 	go func() {
 		time.Sleep(time.Second * 1)

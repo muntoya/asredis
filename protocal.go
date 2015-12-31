@@ -120,7 +120,7 @@ func readReply(io *bufio.Reader)  (reply *Reply) {
 	return
 }
 
-func writeReqToBuf(buf *bufio.Writer, req *RequestInfo) {
+func writeReqToBuf(buf *bufio.Writer, req *Request) {
 	//写入参数个数
 	argsCnt := len(req.args) + 1
 	buf.WriteByte(array_byte)

@@ -9,17 +9,23 @@ const (
 	subTimeout time.Duration = time.Second * 1
 )
 
+type SubMsg struct {
+	Channel string
+	Value   interface{}
+}
+
 //订阅
 type PubsubClient struct {
 	redisClient *Client
-	replyChan   chan *RequestInfo
+	replyChan   chan *Request
 	subTick     <-chan time.Time
+	messageChan chan *SubMsg
 }
 
 func NewPubsubClient(network, addr string) (pubsubClient *PubsubClient) {
 	pubsubClient = &PubsubClient{
 		redisClient: NewClient(network, addr),
-		replyChan:   make(chan *RequestInfo, 1),
+		replyChan:   make(chan *Request, 1),
 		subTick:     time.Tick(subTimeout),
 	}
 
@@ -40,8 +46,7 @@ func (this *PubsubClient) UnSub(channel ...interface{}) (err error) {
 
 func (this *PubsubClient) process() {
 	for {
-		req := this.redisClient.PubsubWait(this.replyChan)
-		reply, err := req.GetReply()
+		reply, err := this.redisClient.PubsubWait(this.replyChan)
 		fmt.Println(*reply, err)
 	}
 }

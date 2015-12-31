@@ -8,7 +8,7 @@ import (
 // 用来保存连接至单个redis进程的多个连接
 type Pool struct {
 	clients     []*Client
-	replyChan   chan chan *RequestInfo
+	replyChan   chan chan *Request
 	nConn       int32
 	nChan       int32
 	msgID       int32
@@ -45,13 +45,13 @@ func NewPool(network, addr string, nConn, nChan int32) *Pool {
 
 	pool := &Pool{
 		clients:    clients,
-		replyChan:  make(chan chan *RequestInfo, nChan),
+		replyChan:  make(chan chan *Request, nChan),
 		nConn:      nConn,
 		nChan:      nChan,
 	}
 
 	for i = 0; i < nChan; i++ {
-		pool.replyChan <- make(chan *RequestInfo, 1)
+		pool.replyChan <- make(chan *Request, 1)
 	}
 
 	return pool
