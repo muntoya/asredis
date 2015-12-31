@@ -5,6 +5,7 @@ import (
 //	"fmt"
 	"github.com/stretchr/testify/assert"
 //	"fmt"
+	"fmt"
 )
 
 func TestPubsub(t *testing.T) {
@@ -17,4 +18,9 @@ func TestPubsub(t *testing.T) {
 	assert.Exactly(t, nil, err)
 	_, err = client.Go(c, "PUBLISH", "c2", "heihei").GetReply()
 	assert.Exactly(t, nil, err)
+
+	for i := 0; i < 2; i++ {
+		msg := clientSubpub.GetMessage(0)
+		fmt.Println(msg)
+	}
 }

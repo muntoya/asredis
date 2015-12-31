@@ -1,8 +1,9 @@
 package asredis
 
 import (
-	"fmt"
+//	"fmt"
 	"time"
+	"log"
 )
 
 const (
@@ -11,7 +12,7 @@ const (
 
 type SubMsg struct {
 	Channel string
-	Value   interface{}
+	Value   string
 }
 
 //订阅
@@ -27,6 +28,7 @@ func NewPubsubClient(network, addr string) (pubsubClient *PubsubClient) {
 		redisClient: NewClient(network, addr),
 		replyChan:   make(chan *Request, 1),
 		subTick:     time.Tick(subTimeout),
+		messageChan: make(chan *SubMsg, 100),
 	}
 
 	go pubsubClient.process()
@@ -47,6 +49,30 @@ func (this *PubsubClient) UnSub(channel ...interface{}) (err error) {
 func (this *PubsubClient) process() {
 	for {
 		reply, err := this.redisClient.PubsubWait(this.replyChan)
-		fmt.Println(*reply, err)
+		if err != nil {
+			log.Printf("read sub reply error: %v", err)
+		} else {
+
+			if len(reply.Array) == 3 && reply.Array[0].(string) == "message" {
+				msg := SubMsg{Channel: reply.Array[1].(string), Value: reply.Array[2].(string)}
+				this.messageChan <- &msg
+			}
+		}
+	}
+}
+
+func (this *PubsubClient) GetMessage(timeout time.Duration) *SubMsg {
+	var tick <-chan time.Time
+	if timeout == 0 {
+		tick = this.subTick
+	} else {
+		tick = time.Tick(timeout)
+	}
+
+	select {
+	case msg := <-this.messageChan:
+		return msg
+	case <-tick:
+		return nil
 	}
 }
