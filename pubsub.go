@@ -1,13 +1,16 @@
 package asredis
 
 import (
-//	"fmt"
-	"time"
+	//	"fmt"
 	"log"
+	"time"
 )
 
 const (
-	subTimeout time.Duration = time.Second * 1
+	subTimeout     time.Duration = time.Second * 1
+	messageChanLen int           = 100
+	subChanLen     int           = 10
+	unSubChanLen   int           = 10
 )
 
 type SubMsg struct {
@@ -21,6 +24,8 @@ type PubsubClient struct {
 	replyChan   chan *Request
 	subTick     <-chan time.Time
 	messageChan chan *SubMsg
+	subChan     chan error
+	unSubChan   chan error
 }
 
 func NewPubsubClient(network, addr string) (pubsubClient *PubsubClient) {
@@ -28,7 +33,9 @@ func NewPubsubClient(network, addr string) (pubsubClient *PubsubClient) {
 		redisClient: NewClient(network, addr),
 		replyChan:   make(chan *Request, 1),
 		subTick:     time.Tick(subTimeout),
-		messageChan: make(chan *SubMsg, 100),
+		messageChan: make(chan *SubMsg, messageChanLen),
+		subChan:     make(chan error, subChanLen),
+		unSubChan:   make(chan error, unSubChanLen),
 	}
 
 	go pubsubClient.process()
@@ -50,12 +57,28 @@ func (this *PubsubClient) process() {
 	for {
 		reply, err := this.redisClient.PubsubWait(this.replyChan)
 		if err != nil {
-			log.Printf("read sub reply error: %v", err)
+			log.Printf("read sub reply error: %v\n", err)
 		} else {
 
-			if len(reply.Array) == 3 && reply.Array[0].(string) == "message" {
+			if len(reply.Array) != 3 {
+				continue
+			}
+
+			t, ok := reply.Array[0].(string)
+			if !ok {
+				continue
+			}
+
+			switch t {
+			case "message":
 				msg := SubMsg{Channel: reply.Array[1].(string), Value: reply.Array[2].(string)}
 				this.messageChan <- &msg
+			case "subcribe":
+			//	this.subChan <- err
+			case "unsubcribe":
+			//	this.unSubChan <- err
+			default:
+				log.Printf("error pubsub reply type: %v", t)
 			}
 		}
 	}
