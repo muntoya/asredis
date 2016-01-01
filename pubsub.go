@@ -4,13 +4,13 @@ import (
 	//	"fmt"
 	"log"
 	"time"
+	"fmt"
 )
 
 const (
-	subTimeout     time.Duration = time.Second * 1
+	getReplyTimeout     time.Duration = time.Second * 1
+	subTimeout	time.Duration = time.Millisecond * 100
 	messageChanLen int           = 100
-	subChanLen     int           = 10
-	unSubChanLen   int           = 10
 )
 
 type SubMsg struct {
@@ -22,20 +22,20 @@ type SubMsg struct {
 type PubsubClient struct {
 	redisClient *Client
 	replyChan   chan *Request
-	subTick     <-chan time.Time
+	replyTick   <-chan time.Time
+	subTick     time.Ticker
 	messageChan chan *SubMsg
 	subChan     chan error
-	unSubChan   chan error
+	unsubChan   chan error
 }
 
 func NewPubsubClient(network, addr string) (pubsubClient *PubsubClient) {
 	pubsubClient = &PubsubClient{
 		redisClient: NewClient(network, addr),
 		replyChan:   make(chan *Request, 1),
-		subTick:     time.Tick(subTimeout),
 		messageChan: make(chan *SubMsg, messageChanLen),
-		subChan:     make(chan error, subChanLen),
-		unSubChan:   make(chan error, unSubChanLen),
+		subChan:     make(chan error),
+		unsubChan:   make(chan error),
 	}
 
 	go pubsubClient.process()
@@ -45,11 +45,30 @@ func NewPubsubClient(network, addr string) (pubsubClient *PubsubClient) {
 
 func (this *PubsubClient) Sub(channel ...interface{}) (err error) {
 	err = this.redisClient.PubsubSend("SUBSCRIBE", channel...)
+	if err != nil {
+		return
+	}
+
+	subTick := time.Tick(subTimeout)
+	select {
+	case err = <-this.subChan:
+	case <-subTick:
+		err = ErrWaitReplyTimeout
+	}
+
 	return
 }
 
 func (this *PubsubClient) UnSub(channel ...interface{}) (err error) {
 	err = this.redisClient.PubsubSend("UBSUBSCRIBE", channel...)
+
+	subTick := time.Tick(subTimeout)
+	select {
+	case err = <-this.unsubChan:
+	case <-subTick:
+		err = ErrWaitReplyTimeout
+	}
+
 	return
 }
 
@@ -74,9 +93,15 @@ func (this *PubsubClient) process() {
 				msg := SubMsg{Channel: reply.Array[1].(string), Value: reply.Array[2].(string)}
 				this.messageChan <- &msg
 			case "subscribe":
-			//	this.subChan <- err
+				select {
+				case this.subChan <- err:
+				default:
+				}
 			case "unsubscribe":
-			//	this.unSubChan <- err
+				select {
+				case this.subChan <- err:
+				default:
+				}
 			default:
 				log.Printf("error pubsub reply type: %v", t)
 			}
@@ -87,7 +112,7 @@ func (this *PubsubClient) process() {
 func (this *PubsubClient) GetMessage(timeout time.Duration) *SubMsg {
 	var tick <-chan time.Time
 	if timeout == 0 {
-		tick = this.subTick
+		tick = this.replyTick
 	} else {
 		tick = time.Tick(timeout)
 	}
