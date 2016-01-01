@@ -173,10 +173,10 @@ func (this *Client) PubsubWait(done chan *Request) (*Reply, error) {
 	return req.GetReply()
 }
 
-func (this *Client) PubsubSend(cmd string, args ...interface{}) *Request {
+func (this *Client) PubsubSend(cmd string, args ...interface{}) error {
 	req := newRequst(nil, cmd, args...)
 	this.sendRequest(req, true)
-	return req
+	return req.err
 }
 
 func (this *Client) recover(err error) {

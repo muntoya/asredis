@@ -44,13 +44,13 @@ func NewPubsubClient(network, addr string) (pubsubClient *PubsubClient) {
 }
 
 func (this *PubsubClient) Sub(channel ...interface{}) (err error) {
-	req := this.redisClient.PubsubSend("SUBSCRIBE", channel...)
-	return req.err
+	err = this.redisClient.PubsubSend("SUBSCRIBE", channel...)
+	return
 }
 
 func (this *PubsubClient) UnSub(channel ...interface{}) (err error) {
-	req := this.redisClient.PubsubSend("UBSUBSCRIBE", channel...)
-	return req.err
+	err = this.redisClient.PubsubSend("UBSUBSCRIBE", channel...)
+	return
 }
 
 func (this *PubsubClient) process() {
@@ -73,9 +73,9 @@ func (this *PubsubClient) process() {
 			case "message":
 				msg := SubMsg{Channel: reply.Array[1].(string), Value: reply.Array[2].(string)}
 				this.messageChan <- &msg
-			case "subcribe":
+			case "subscribe":
 			//	this.subChan <- err
-			case "unsubcribe":
+			case "unsubscribe":
 			//	this.unSubChan <- err
 			default:
 				log.Printf("error pubsub reply type: %v", t)
