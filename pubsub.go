@@ -27,9 +27,9 @@ type PubsubClient struct {
 	unsubChan   chan error
 }
 
-func NewPubsubClient(network, addr string) (pubsubClient *PubsubClient) {
+func NewPubsubClient(addr string) (pubsubClient *PubsubClient) {
 	pubsubClient = &PubsubClient{
-		redisClient: NewClient(network, addr),
+		redisClient: NewClient(addr),
 		replyChan:   make(chan *Request, 1),
 		messageChan: make(chan *SubMsg, messageChanLen),
 		subChan:     make(chan error),

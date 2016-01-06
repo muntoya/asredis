@@ -50,6 +50,7 @@ func readToCRLF(io *bufio.Reader) []byte {
 	return buf[0 : len(buf)-1]
 }
 
+//读取一个完整的回复数据
 func readReply(io *bufio.Reader)  (reply *Reply) {
 	if io == nil {
 		panic(ErrNotConnected)

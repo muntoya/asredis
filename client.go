@@ -2,7 +2,6 @@ package asredis
 
 import (
 	"bufio"
-	"fmt"
 	"log"
 	"net"
 	"sync"
@@ -52,7 +51,6 @@ type Client struct {
 	net.Conn
 	readBuffer  *bufio.Reader
 	writeBuffer *bufio.Writer
-	network     string
 	addr        string
 	stop        bool
 
@@ -71,17 +69,17 @@ type Client struct {
 }
 
 func (this Client) String() string {
-	return fmt.Sprintf("%s %s", this.network, this.addr)
+	return this.addr
 }
 
 func (this *Client) Connect() {
 	this.connected = false
 
 	var err error
-	this.Conn, err = net.DialTimeout(this.network, this.addr, connectTimeout)
+	this.Conn, err = net.DialTimeout("tcp", this.addr, connectTimeout)
 	if err != nil {
 		this.err = err
-		log.Printf("can't connect to redis %v:%v, error:%v", this.network, this.addr, err)
+		log.Printf("can't connect to redis %v, error:%v", this.addr, err)
 		return
 	}
 
@@ -245,9 +243,8 @@ func (this *Client) read(req *Request) {
 	req.reply = readReply(this.readBuffer)
 }
 
-func NewClient(network, addr string) (client *Client) {
+func NewClient(addr string) (client *Client) {
 	client = &Client{
-		network:     network,
 		addr:        addr,
 		stop:		false,
 		connected:   false,
