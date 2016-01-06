@@ -7,9 +7,9 @@ import (
 )
 
 const (
-	getReplyTimeout     time.Duration = time.Second * 1
-	subTimeout	time.Duration = time.Millisecond * 100
-	messageChanLen int           = 100
+	getReplyTimeout time.Duration = time.Second * 1
+	subTimeout      time.Duration = time.Millisecond * 100
+	messageChanLen  int           = 100
 )
 
 type SubMsg struct {
@@ -21,7 +21,6 @@ type SubMsg struct {
 type PubsubClient struct {
 	redisClient *Client
 	replyChan   chan *Request
-	replyTick   <-chan time.Time
 	subTick     time.Ticker
 	messageChan chan *SubMsg
 	subChan     chan error
@@ -48,7 +47,7 @@ func (this *PubsubClient) Sub(channel ...interface{}) (err error) {
 		return
 	}
 
-	subTick := time.Tick(subTimeout)
+	subTick := time.After(subTimeout)
 	select {
 	case err = <-this.subChan:
 	case <-subTick:
@@ -61,7 +60,7 @@ func (this *PubsubClient) Sub(channel ...interface{}) (err error) {
 func (this *PubsubClient) UnSub(channel ...interface{}) (err error) {
 	err = this.redisClient.PubsubSend("UBSUBSCRIBE", channel...)
 
-	subTick := time.Tick(subTimeout)
+	subTick := time.After(subTimeout)
 	select {
 	case err = <-this.unsubChan:
 	case <-subTick:
@@ -75,7 +74,7 @@ func (this *PubsubClient) process() {
 	for {
 		reply, err := this.redisClient.PubsubWait(this.replyChan)
 		if err != nil {
-			log.Printf("read sub reply error: %v\n", err)
+			log.Panic("read sub reply error: %v\n", err)
 		} else {
 
 			if len(reply.Array) != 3 {
@@ -102,7 +101,7 @@ func (this *PubsubClient) process() {
 				default:
 				}
 			default:
-				log.Printf("error pubsub reply type: %v", t)
+				log.Panic("error pubsub reply type: %v\n", t)
 			}
 		}
 	}
@@ -111,9 +110,9 @@ func (this *PubsubClient) process() {
 func (this *PubsubClient) GetMessage(timeout time.Duration) *SubMsg {
 	var tick <-chan time.Time
 	if timeout == 0 {
-		tick = this.replyTick
+		tick = time.After(getReplyTimeout)
 	} else {
-		tick = time.Tick(timeout)
+		tick = time.After(timeout)
 	}
 
 	select {
