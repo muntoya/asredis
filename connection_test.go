@@ -11,7 +11,7 @@ import (
 )
 
 func TestClient(t *testing.T) {
-	client:= NewClient("127.0.0.1:6379")
+	client:= NewConnection("127.0.0.1:6379")
 	defer client.Shutdown()
 
 	c := make(chan *Request, 1)
@@ -38,7 +38,7 @@ func TestClient(t *testing.T) {
 
 func TestError(t *testing.T) {
 	t.Skip("skip connnectiong loop")
-	client := NewClient("127.0.0.1:6379")
+	client := NewConnection("127.0.0.1:6379")
 
 	c := make(chan *Request, 1)
 

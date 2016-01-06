@@ -19,7 +19,7 @@ type SubMsg struct {
 
 //订阅
 type PubsubClient struct {
-	redisClient *Client
+	redisClient *Connection
 	replyChan   chan *Request
 	subTick     time.Ticker
 	messageChan chan *SubMsg
@@ -29,7 +29,7 @@ type PubsubClient struct {
 
 func NewPubsubClient(addr string) (pubsubClient *PubsubClient) {
 	pubsubClient = &PubsubClient{
-		redisClient: NewClient(addr),
+		redisClient: NewConnection(addr),
 		replyChan:   make(chan *Request, 1),
 		messageChan: make(chan *SubMsg, messageChanLen),
 		subChan:     make(chan error),

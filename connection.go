@@ -47,7 +47,7 @@ const (
 	ctrlShutdown
 )
 
-type Client struct {
+type Connection struct {
 	net.Conn
 	readBuffer  *bufio.Reader
 	writeBuffer *bufio.Writer
@@ -68,11 +68,11 @@ type Client struct {
 	lastConnect time.Time
 }
 
-func (this Client) String() string {
+func (this Connection) String() string {
 	return this.addr
 }
 
-func (this *Client) Connect() {
+func (this *Connection) Connect() {
 	this.connected = false
 
 	var err error
@@ -90,7 +90,7 @@ func (this *Client) Connect() {
 	this.err = nil
 }
 
-func (this *Client) Shutdown() {
+func (this *Connection) Shutdown() {
 	this.conMutex.Lock()
 	defer this.conMutex.Unlock()
 
@@ -99,37 +99,37 @@ func (this *Client) Shutdown() {
 	this.connected = false
 }
 
-func (this *Client) Ping() {
+func (this *Connection) Ping() {
 	this.Go(nil, "PING")
 }
 
-func (this Client) IsShutDown() bool {
+func (this Connection) IsShutDown() bool {
 	return this.stop
 }
 
-func (this Client) IsConnected() bool {
+func (this Connection) IsConnected() bool {
 	return this.connected
 }
 
-func (this *Client) sendReconnectCtrl() {
+func (this *Connection) sendReconnectCtrl() {
 	this.ctrlChan <- ctrlReconnect
 }
 
-func (this *Client) sendShutdownCtrl() {
+func (this *Connection) sendShutdownCtrl() {
 	this.ctrlChan <- ctrlShutdown
 }
 
-func (this *Client) send(req *Request) {
+func (this *Connection) send(req *Request) {
 	writeReqToBuf(this.writeBuffer, req)
 }
 
-func (this *Client) Go(done chan *Request, cmd string, args ...interface{}) *Request {
+func (this *Connection) Go(done chan *Request, cmd string, args ...interface{}) *Request {
 	req := newRequst(done, cmd, args...)
 	this.sendRequest(req, false)
 	return req
 }
 
-func (this *Client) sendRequest(req *Request, onlySend bool) {
+func (this *Connection) sendRequest(req *Request, onlySend bool) {
 
 	this.conMutex.Lock()
 	defer func() {
@@ -156,19 +156,19 @@ func (this *Client) sendRequest(req *Request, onlySend bool) {
 	}
 }
 
-func (this *Client) PubsubWait(done chan *Request) (*Reply, error) {
+func (this *Connection) PubsubWait(done chan *Request) (*Reply, error) {
 	req := newRequst(done, "")
 	this.reqsPending <- req
 	return req.GetReply()
 }
 
-func (this *Client) PubsubSend(cmd string, args ...interface{}) error {
+func (this *Connection) PubsubSend(cmd string, args ...interface{}) error {
 	req := newRequst(nil, cmd, args...)
 	this.sendRequest(req, true)
 	return req.err
 }
 
-func (this *Client) recover(err error) {
+func (this *Connection) recover(err error) {
 	this.conMutex.Lock()
 	defer this.conMutex.Unlock()
 
@@ -183,7 +183,7 @@ func (this *Client) recover(err error) {
 }
 
 //清空等待的请求
-func (this *Client) clear(err error) {
+func (this *Connection) clear(err error) {
 	close(this.reqsPending)
 	for req := range this.reqsPending {
 		req.err = err
@@ -192,7 +192,7 @@ func (this *Client) clear(err error) {
 	this.reqsPending = make(chan *Request, 100)
 }
 
-func (this *Client) control(ctrl ctrlType) {
+func (this *Connection) control(ctrl ctrlType) {
 	switch ctrl {
 	case ctrlReconnect:
 		this.recover(ErrNotConnected)
@@ -208,7 +208,7 @@ func (this *Client) control(ctrl ctrlType) {
 }
 
 //处理读请求和控制请求
-func (this *Client) process() {
+func (this *Connection) process() {
 	for {
 		if this.stop {
 			break
@@ -225,7 +225,7 @@ func (this *Client) process() {
 	}
 }
 
-func (this *Client) read(req *Request) {
+func (this *Connection) read(req *Request) {
 	if this.IsShutDown() {
 		return
 	}
@@ -243,8 +243,8 @@ func (this *Client) read(req *Request) {
 	req.reply = readReply(this.readBuffer)
 }
 
-func NewClient(addr string) (client *Client) {
-	client = &Client{
+func NewConnection(addr string) (client *Connection) {
+	client = &Connection{
 		addr:        addr,
 		stop:		false,
 		connected:   false,
