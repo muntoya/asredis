@@ -70,7 +70,7 @@ type Client struct {
 	lastConnect time.Time
 }
 
-func (this *Client) String() string {
+func (this Client) String() string {
 	return fmt.Sprintf("%s %s", this.network, this.addr)
 }
 
@@ -105,11 +105,11 @@ func (this *Client) Ping() {
 	this.Go(nil, "PING")
 }
 
-func (this *Client) IsShutDown() bool {
+func (this Client) IsShutDown() bool {
 	return this.stop
 }
 
-func (this *Client) IsConnected() bool {
+func (this Client) IsConnected() bool {
 	return this.connected
 }
 
@@ -159,17 +159,8 @@ func (this *Client) sendRequest(req *Request, onlySend bool) {
 }
 
 func (this *Client) PubsubWait(done chan *Request) (*Reply, error) {
-	req := new(Request)
-
-	if done != nil {
-		if cap(done) == 0 {
-			log.Panic("redis client: done channel is unbuffered")
-		}
-		req.Done = done
-	}
-
+	req := newRequst(done, "")
 	this.reqsPending <- req
-
 	return req.GetReply()
 }
 
