@@ -68,7 +68,7 @@ type Connection struct {
 	lastConnect time.Time
 }
 
-func (this Connection) String() string {
+func (this *Connection) String() string {
 	return this.addr
 }
 
@@ -103,11 +103,11 @@ func (this *Connection) Ping() {
 	this.Go(nil, "PING")
 }
 
-func (this Connection) IsShutDown() bool {
+func (this *Connection) IsShutDown() bool {
 	return this.stop
 }
 
-func (this Connection) IsConnected() bool {
+func (this *Connection) IsConnected() bool {
 	return this.connected
 }
 
