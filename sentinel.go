@@ -15,12 +15,13 @@ type SConnection struct {
 func (this *SConnection) GetMasters() (pp *ConnProperty, err error) {
 	var reply *Reply
 	reply, err = this.Call(this.commandChan, "sentinel", "masters")
+	fmt.Println(reply, err)
 	if err != nil {
 		return
 	}
 
 	fmt.Println(reply.Array)
-	
+
 	return pp, nil
 }
 

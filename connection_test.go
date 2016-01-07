@@ -3,14 +3,12 @@ package asredis
 import (
 	"time"
 //	"runtime/debug"
-//	"fmt"
 	"testing"
 	"github.com/stretchr/testify/assert"
-//	"runtime/debug"
 	"fmt"
 )
 
-func TestClient(t *testing.T) {
+func TestConnection(t *testing.T) {
 	client:= NewConnection("127.0.0.1:6379")
 	defer client.Shutdown()
 
