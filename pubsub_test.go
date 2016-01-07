@@ -12,9 +12,9 @@ func TestPubsub(t *testing.T) {
 
 	client := NewConnection("127.0.0.1:6379")
 	c := make(chan *Request, 1)
-	_, err := client.Go(c, "PUBLISH", "c1", "haha").GetReply()
+	_, err := client.Call(c, "PUBLISH", "c1", "haha")
 	assert.Exactly(t, nil, err)
-	_, err = client.Go(c, "PUBLISH", "c2", "heihei").GetReply()
+	_, err = client.Call(c, "PUBLISH", "c2", "heihei")
 	assert.Exactly(t, nil, err)
 
 	msg := clientSubpub.GetMessage(0)

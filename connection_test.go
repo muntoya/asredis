@@ -15,8 +15,7 @@ func TestClient(t *testing.T) {
 	defer client.Shutdown()
 
 	c := make(chan *Request, 1)
-	req := client.Go(c, "SET", "int", 2)
-	reply, err := req.GetReply()
+	reply, err := client.Call(c, "SET", "int", 2)
 	if err != nil {
 		t.Fatal(err)
 	} else {
@@ -26,8 +25,7 @@ func TestClient(t *testing.T) {
 	assert.Equal(t, reply.Type, STRING)
 	assert.Equal(t, reply.Value, "OK")
 
-	req = client.Go(c, "GET", "int")
-	reply, err = req.GetReply()
+	reply, err = client.Call(c, "GET", "int")
 	if err != nil {
 		t.Fatal(err)
 	} else {
@@ -49,8 +47,7 @@ func TestError(t *testing.T) {
 
 	for i:= 0; i < 3; i++ {
 		fmt.Println("go", i)
-		req := client.Go(c, "GET", "int")
-		reply, err := req.GetReply()
+		reply, err := client.Call(c, "GET", "int")
 		fmt.Println(i, err)
 		if err == nil {
 			t.Log(reply.Type, reply.Value)

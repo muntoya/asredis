@@ -20,8 +20,7 @@ func (this *Pool) Exec(cmd string, args ...interface{}) (reply *Reply, err error
 	connID := msgID % this.nConn
 	conn := this.clients[connID]
 	c := <-this.replyChan
-	req := conn.Go(c, cmd, args...)
-	reply, err = req.GetReply()
+	reply, err = conn.Call(c, cmd, args...)
 	this.replyChan <- c
 	return
 }

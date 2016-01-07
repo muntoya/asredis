@@ -8,7 +8,7 @@ import (
 
 const (
 	getReplyTimeout time.Duration = time.Second * 1
-	subTimeout      time.Duration = time.Millisecond * 100
+	commandTimeout  time.Duration = time.Millisecond * 100
 	messageChanLen  int           = 100
 )
 
@@ -47,7 +47,7 @@ func (this *PubsubClient) Sub(channel ...interface{}) (err error) {
 		return
 	}
 
-	subTick := time.After(subTimeout)
+	subTick := time.After(commandTimeout)
 	select {
 	case err = <-this.subChan:
 	case <-subTick:
@@ -60,7 +60,7 @@ func (this *PubsubClient) Sub(channel ...interface{}) (err error) {
 func (this *PubsubClient) UnSub(channel ...interface{}) (err error) {
 	err = this.redisClient.PubsubSend("UBSUBSCRIBE", channel...)
 
-	subTick := time.After(subTimeout)
+	subTick := time.After(commandTimeout)
 	select {
 	case err = <-this.unsubChan:
 	case <-subTick:
@@ -101,7 +101,7 @@ func (this *PubsubClient) process() {
 				default:
 				}
 			default:
-				log.Panic("error pubsub reply type: %v\n", t)
+				log.Printf("error pubsub reply type: %v\n", t)
 			}
 		}
 	}

@@ -6,7 +6,7 @@ import (
 	"net"
 	"sync"
 	"time"
-//	"runtime/debug"
+	//	"runtime/debug"
 )
 
 const (
@@ -54,16 +54,16 @@ type Connection struct {
 	addr        string
 	stop        bool
 
-	conMutex    sync.Mutex
-	reqMutex    sync.Mutex
+	conMutex sync.Mutex
+	reqMutex sync.Mutex
 
 	//等待接收回复的请求
 	reqsPending chan *Request
 
-	ctrlChan    chan ctrlType
-	connected   bool
-	err         error
-	pingTick    <-chan time.Time
+	ctrlChan  chan ctrlType
+	connected bool
+	err       error
+	pingTick  <-chan time.Time
 
 	lastConnect time.Time
 }
@@ -127,6 +127,11 @@ func (this *Connection) Go(done chan *Request, cmd string, args ...interface{}) 
 	req := newRequst(done, cmd, args...)
 	this.sendRequest(req, false)
 	return req
+}
+
+func (this *Connection) Call(done chan *Request, cmd string, args ...interface{}) (*Reply, error) {
+	req := this.Go(done, cmd, args...)
+	return req.GetReply()
 }
 
 func (this *Connection) sendRequest(req *Request, onlySend bool) {
@@ -246,7 +251,7 @@ func (this *Connection) read(req *Request) {
 func NewConnection(addr string) (client *Connection) {
 	client = &Connection{
 		addr:        addr,
-		stop:		false,
+		stop:        false,
 		connected:   false,
 		reqsPending: make(chan *Request, 100),
 		ctrlChan:    make(chan ctrlType, 10),
@@ -261,7 +266,7 @@ func NewConnection(addr string) (client *Connection) {
 	return
 }
 
-func newRequst(done chan *Request, cmd string, args ...interface{}) (*Request) {
+func newRequst(done chan *Request, cmd string, args ...interface{}) *Request {
 	req := new(Request)
 
 	if done != nil {
