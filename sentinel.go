@@ -1,5 +1,8 @@
 package asredis
-import "fmt"
+import (
+	"log"
+	//"fmt"
+)
 
 //sentinel connetcion,工具类,用来实现集群的连接
 
@@ -12,16 +15,42 @@ type SConnection struct {
 	commandChan chan *Request
 }
 
-func (this *SConnection) GetMasters() (pp *ConnProperty, err error) {
+func (this *SConnection) GetMasters() (ppArray []*ConnProperty, err error) {
 	var reply *Reply
 	reply, err = this.Call(this.commandChan, "sentinel", "masters")
 	if err != nil {
 		return
 	}
 
-	fmt.Println(reply.Array)
+	var m interface{}
+	for _, m = range reply.Array {
+		array, e := m.([]interface{})
+		if !e {
+			log.Panicln("can't parse masters")
+		}
 
-	return pp, nil
+		var property ConnProperty
+		for i := 0; i < len(array); i += 2 {
+
+			key := array[i].(string)
+			value := array[i+1].(string)
+			switch key {
+			case "name":
+				property.name = value
+			case "ip":
+				property.ip = value
+			case "port":
+				property.runid = value
+			case "flags":
+				property.flags = value
+			default:
+				//log.Println("no key", key)
+			}
+		}
+		ppArray = append(ppArray, &property)
+	}
+
+	return ppArray, nil
 }
 
 func NewSConnection(addr string) *SConnection {

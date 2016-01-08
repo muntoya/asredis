@@ -5,10 +5,11 @@ import (
 //	"runtime/debug"
 	"testing"
 //	"github.com/stretchr/testify/assert"
-//	"fmt"
+	"fmt"
 )
 
 func TestSConnection(t *testing.T) {
 	sconn := NewSConnection("127.0.0.1:26379")
-	sconn.GetMasters()
+	ps, _ := sconn.GetMasters()
+	fmt.Println(ps[0])
 }

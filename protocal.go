@@ -123,7 +123,7 @@ func readArray(io *bufio.Reader, len int)  (array []interface{}) {
 			if err != nil {
 				panic(err)
 			}
-			array = readArray(io, l)
+			array[i] = readArray(io, l)
 
 		default:
 			panic(ErrUnexpectedReplyType)
