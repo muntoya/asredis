@@ -95,30 +95,40 @@ func readReply(io *bufio.Reader)  (reply *Reply) {
 		}
 
 		reply.Type = ARRAY
-
-		reply.Array = make([]interface{}, len)
-		for i := 0; i < len; i++ {
-			s := readToCRLF(io)
-			switch s[0] {
-			case num_byte:
-				ele, err := strconv.Atoi(string(s[1:]))
-				if err != nil {
-					panic(err)
-				}
-				reply.Array[i] = ele
-			case size_byte:
-				ele := readToCRLF(io)
-				reply.Array[i] = string(ele)
-
-			default:
-				panic(ErrUnexpectedReplyType)
-			}
-		}
+		reply.Array = readArray(io, len)
 
 	default:
 		panic(ErrUnexpectedReplyType)
 	}
 
+	return
+}
+
+func readArray(io *bufio.Reader, len int)  (array []interface{}) {
+	array = make([]interface{}, len)
+	for i := 0; i < len; i++ {
+		s := readToCRLF(io)
+		switch s[0] {
+		case num_byte:
+			ele, err := strconv.Atoi(string(s[1:]))
+			if err != nil {
+				panic(err)
+			}
+			array[i] = ele
+		case size_byte:
+			ele := readToCRLF(io)
+			array[i] = string(ele)
+		case array_byte:
+			l, err :=  strconv.Atoi(string(s[1:]))
+			if err != nil {
+				panic(err)
+			}
+			array = readArray(io, l)
+
+		default:
+			panic(ErrUnexpectedReplyType)
+		}
+	}
 	return
 }
 

@@ -29,7 +29,12 @@ func TestConnection(t *testing.T) {
 	} else {
 		t.Log(reply.Type, reply.Value)
 	}
-	fmt.Print("end")
+
+	l := []interface{}{"1", "2", "3", "4", "5"}
+	client.Call(c, "DEL", "list")
+	reply, err = client.Call(c, "RPUSH", append([]interface{}{"list"}, l...)...)
+	reply, err = client.Call(c, "LRANGE", "list", 0, -1)
+	assert.Equal(t, reply.Array, l)
 }
 
 func TestError(t *testing.T) {
