@@ -53,6 +53,10 @@ func (this *SConnection) GetMasters() (ppArray []*ConnProperty, err error) {
 	return ppArray, nil
 }
 
+func (this *SConnection) GetSlaves(master string) (ppArray []*ConnProperty, err error) {
+	return
+}
+
 func NewSConnection(addr string) *SConnection {
 	return &SConnection{
 		Connection: NewConnection(addr),
