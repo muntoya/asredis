@@ -6,7 +6,7 @@ import (
 
 //sentinel connetcion,工具类,用来实现集群的连接
 
-type ConnProperty struct {
+type ConnProp struct {
 	name, ip, port, runid, flags string
 }
 
@@ -15,45 +15,35 @@ type SConnection struct {
 	commandChan chan *Request
 }
 
-func (this *SConnection) GetMasters() (ppArray []*ConnProperty, err error) {
+func (this *SConnection) GetMasters() (ppArray []*ConnProp, err error) {
 	var reply *Reply
-	reply, err = this.Call(this.commandChan, "sentinel", "masters")
+	reply, err = this.Call(this.commandChan, "SENTINEL", "MASTERS")
 	if err != nil {
 		return
 	}
 
-	var m interface{}
-	for _, m = range reply.Array {
-		array, e := m.([]interface{})
-		if !e {
-			log.Panicln("can't parse masters")
-		}
-
-		var property ConnProperty
-		for i := 0; i < len(array); i += 2 {
-
-			key := array[i].(string)
-			value := array[i+1].(string)
-			switch key {
-			case "name":
-				property.name = value
-			case "ip":
-				property.ip = value
-			case "port":
-				property.runid = value
-			case "flags":
-				property.flags = value
-			default:
-				//log.Println("no key", key)
-			}
-		}
-		ppArray = append(ppArray, &property)
-	}
-
-	return ppArray, nil
+	ppArray, err = readConnPropArray(reply.Array)
+	return
 }
 
-func (this *SConnection) GetSlaves(master string) (ppArray []*ConnProperty, err error) {
+func (this *SConnection) GetMaster(master string) (pp *ConnProp, err error) {
+	var reply *Reply
+	reply ,err = this.Call(this.commandChan, "SENTINEL", "MASTER", master)
+	if err != nil {
+		return
+	}
+	pp, err = readConnProp(reply.Array)
+	return
+}
+
+func (this *SConnection) GetSlaves(master string) (ppArray []*ConnProp, err error) {
+	var reply *Reply
+	reply ,err = this.Call(this.commandChan, "SENTINEL", "SLAVES", master)
+	if err != nil {
+		return
+	}
+
+	ppArray, err = readConnPropArray(reply.Array)
 	return
 }
 
@@ -62,4 +52,42 @@ func NewSConnection(addr string) *SConnection {
 		Connection: NewConnection(addr),
 		commandChan: make(chan *Request, 1),
 	}
+}
+
+func readConnPropArray(itemArray []interface{}) (ppArray []*ConnProp, err error) {
+	for _, m := range itemArray {
+		array, ok := m.([]interface{})
+		if !ok {
+			log.Panicln("can't parse masters")
+		}
+		var pp *ConnProp
+		pp, err = readConnProp(array)
+		if err != nil {
+			return
+		}
+
+		ppArray = append(ppArray, pp)
+	}
+	return
+}
+
+func readConnProp (array []interface{}) (pp *ConnProp, err error) {
+	pp = new(ConnProp)
+	for i := 0; i < len(array); i += 2 {
+		key := array[i].(string)
+		value := array[i+1].(string)
+		switch key {
+		case "name":
+			pp.name = value
+		case "ip":
+			pp.ip = value
+		case "port":
+			pp.runid = value
+		case "flags":
+			pp.flags = value
+		default:
+			//log.Println("no key", key)
+		}
+	}
+	return
 }
