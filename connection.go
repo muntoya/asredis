@@ -90,7 +90,7 @@ func (this *Connection) Connect() {
 	this.err = nil
 }
 
-func (this *Connection) Shutdown() {
+func (this *Connection) Close() {
 	this.conMutex.Lock()
 	defer this.conMutex.Unlock()
 

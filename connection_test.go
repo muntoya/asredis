@@ -10,7 +10,7 @@ import (
 
 func TestConnection(t *testing.T) {
 	client:= NewConnection("127.0.0.1:6379")
-	defer client.Shutdown()
+	defer client.Close()
 
 	c := make(chan *Request, 1)
 	reply, err := client.Call(c, "SET", "int", 2)

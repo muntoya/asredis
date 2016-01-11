@@ -103,6 +103,7 @@ func readReply(io *bufio.Reader)  (reply *Reply) {
 	return
 }
 
+//递归读取数组数据
 func readArray(io *bufio.Reader, len int)  (array []interface{}) {
 	array = make([]interface{}, len)
 	for i := 0; i < len; i++ {

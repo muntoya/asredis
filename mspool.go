@@ -1,37 +1,88 @@
 package asredis
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 //master/slave pool 用来存储主从服务器的全部连接,自动与所有集群中的服务器连接
 
 type MSPool struct {
-	master        Pool
-	slaves        []Pool
+	master        *Pool
+	slaves        []*Pool
 	sentinelAddrs []string
+	sentinel      *SConnection
 	masterName    string
 }
 
 //遍历连接sentinel,一旦成功就获取集群全部信息并连接
 func (this *MSPool) Connect() {
-	var conn *SConnection
-	for _, addr := range this.sentinelAddrs {
-		conn = NewSConnection(addr)
-		if !conn.IsConnected() {
-			conn.Shutdown()
-			conn = nil
-		}
-	}
+	this.checkSentinel()
 
-	if conn == nil {
-		return
-	}
+	ppMaster, ppSlaveArray, err := this.getConnProps()
 
-	pp, err := conn.GetMaster(this.masterName)
-	conn.Shutdown()
 
 	if err != nil {
 		return
 	}
-	fmt.Println(pp)
+	fmt.Println(ppMaster, ppSlaveArray[0])
+}
+
+func (this *MSPool)getConnProps() (ppMaster *ConnProp, ppSlaveArray []*ConnProp, err error) {
+
+
+	ppMaster, err = this.sentinel.GetMaster(this.masterName)
+	if err != nil {
+		return
+	}
+
+	ppSlaveArray, err = this.sentinel.GetSlaves(this.masterName)
+	return
+}
+
+func (this *MSPool) checkSentinel() {
+	if this.sentinel != nil && this.sentinel.IsConnected() {
+		return
+	}
+
+	if this.sentinel != nil {
+		this.sentinel.Close()
+	}
+
+	for _, addr := range this.sentinelAddrs {
+		this.sentinel = NewSConnection(addr)
+		if !this.sentinel.IsConnected() {
+			this.sentinel.Close()
+		}
+	}
+}
+
+func (this *MSPool) checkMaster() {
+	ppMaster, err := this.sentinel.GetMaster(this.masterName)
+	if err != nil {
+		return
+	}
+
+	address := strings.Join([]string{ppMaster.ip, ppMaster.port}, ":")
+	if this.master != nil && address == this.master.addr {
+		return
+	}
+
+	if this.master != nil {
+		this.master.Close()
+	}
+
+	this.master = NewPool(address, 10, 10)
+}
+
+func (this *MSPool) checkSlaves() {
+
+}
+
+func (this *MSPool) Close() {
+	this.master.Close()
+	for _, s := range this.slaves {
+		s.Close()
+	}
 }
 
 func NewMSPool(master string, sentinelAddrs []string) *MSPool {
