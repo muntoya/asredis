@@ -27,18 +27,6 @@ func (this *MSPool) Connect() {
 	fmt.Println(ppMaster, ppSlaveArray[0])
 }
 
-func (this *MSPool)getConnProps() (ppMaster *ConnProp, ppSlaveArray []*ConnProp, err error) {
-
-
-	ppMaster, err = this.sentinel.GetMaster(this.masterName)
-	if err != nil {
-		return
-	}
-
-	ppSlaveArray, err = this.sentinel.GetSlaves(this.masterName)
-	return
-}
-
 func (this *MSPool) checkSentinel() {
 	if this.sentinel != nil && this.sentinel.IsConnected() {
 		return
@@ -46,6 +34,7 @@ func (this *MSPool) checkSentinel() {
 
 	if this.sentinel != nil {
 		this.sentinel.Close()
+		this.sentinel = nil
 	}
 
 	for _, addr := range this.sentinelAddrs {
@@ -69,13 +58,19 @@ func (this *MSPool) checkMaster() {
 
 	if this.master != nil {
 		this.master.Close()
+		this.master = nil
 	}
 
 	this.master = NewPool(address, 10, 10)
 }
 
 func (this *MSPool) checkSlaves() {
-
+	ppSlaveArray, err := this.sentinel.GetSlaves(this.masterName)
+	if err != nil {
+		return
+	}
+	
+	//TODO: 比较全部slave连接和配置
 }
 
 func (this *MSPool) Close() {
