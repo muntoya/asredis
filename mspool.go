@@ -69,7 +69,9 @@ func (this *MSPool) checkSlaves() {
 	if err != nil {
 		return
 	}
-	
+
+	var connMap [string]struct{}
+
 	//TODO: 比较全部slave连接和配置
 }
 
