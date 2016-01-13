@@ -9,6 +9,7 @@ import (
 )
 
 func TestSConnection(t *testing.T) {
+	t.Skip("skip sentinel")
 	sconn := NewSConnection("127.0.0.1:26379")
 	ps, _ := sconn.GetMasters()
 	fmt.Println(ps[0])

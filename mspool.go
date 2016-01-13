@@ -1,6 +1,6 @@
 package asredis
 import (
-	"fmt"
+	//"fmt"
 	"strings"
 )
 
@@ -17,14 +17,8 @@ type MSPool struct {
 //遍历连接sentinel,一旦成功就获取集群全部信息并连接
 func (this *MSPool) Connect() {
 	this.checkSentinel()
-
-	ppMaster, ppSlaveArray, err := this.getConnProps()
-
-
-	if err != nil {
-		return
-	}
-	fmt.Println(ppMaster, ppSlaveArray[0])
+	this.checkMaster()
+	this.checkSlaves()
 }
 
 func (this *MSPool) checkSentinel() {
@@ -65,12 +59,11 @@ func (this *MSPool) checkMaster() {
 }
 
 func (this *MSPool) checkSlaves() {
-	ppSlaveArray, err := this.sentinel.GetSlaves(this.masterName)
+	_, err := this.sentinel.GetSlaves(this.masterName)
 	if err != nil {
 		return
 	}
 
-	var connMap [string]struct{}
 
 	//TODO: 比较全部slave连接和配置
 }

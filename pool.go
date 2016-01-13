@@ -3,6 +3,7 @@ package asredis
 import (
 //	"time"
 	"sync/atomic"
+	"fmt"
 )
 
 // 用来保存连接至单个redis进程的多个连接
@@ -16,6 +17,7 @@ type Pool struct {
 }
 
 func (this *Pool) Exec(cmd string, args ...interface{}) (reply *Reply, err error) {
+	fmt.Println(args)
 	msgID := atomic.AddInt32(&this.msgID, 1)
 	connID := msgID % this.nConn
 	conn := this.clients[connID]
@@ -34,6 +36,21 @@ func (this *Pool) Close() {
 	for c := range this.replyChan {
 		close(c)
 	}
+}
+
+
+func (this *Pool) Eval(l *LuaEval, args ...interface{}) (reply *Reply, err error) {
+	reply, err = this.Exec("EVALSHA", l.hash, args)
+	fmt.Println(reply, err, args)
+	if reply.Type == ERROR {
+		content := []byte{}
+		content, err = l.readFile()
+		if err != nil {
+			return
+		}
+		reply, err = this.Exec("EVAL", append([]interface{}{content}, args)...)
+	}
+	return
 }
 
 func NewPool(addr string, nConn, nChan int32) *Pool {

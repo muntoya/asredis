@@ -65,7 +65,7 @@ func readReply(io *bufio.Reader)  (reply *Reply) {
 		reply.Value = string(v)
 
 	case err_byte:
-		reply.Type = STRING
+		reply.Type = ERROR
 		reply.Value = string(v)
 
 	case num_byte:
@@ -78,7 +78,7 @@ func readReply(io *bufio.Reader)  (reply *Reply) {
 		}
 
 	case size_byte:
-		reply.Type = INTEGER
+		reply.Type = BULK
 		len, err := strconv.Atoi(v)
 		if err != nil {
 			panic(err)
