@@ -17,7 +17,6 @@ type Pool struct {
 }
 
 func (this *Pool) Exec(cmd string, args ...interface{}) (reply *Reply, err error) {
-	fmt.Println(args)
 	msgID := atomic.AddInt32(&this.msgID, 1)
 	connID := msgID % this.nConn
 	conn := this.clients[connID]
@@ -38,17 +37,16 @@ func (this *Pool) Close() {
 	}
 }
 
-
 func (this *Pool) Eval(l *LuaEval, args ...interface{}) (reply *Reply, err error) {
-	reply, err = this.Exec("EVALSHA", l.hash, args)
-	fmt.Println(reply, err, args)
+	reply, err = this.Exec("EVALSHA", joinArgs(l.hash, args)...)
+
 	if reply.Type == ERROR {
 		content := []byte{}
 		content, err = l.readFile()
 		if err != nil {
 			return
 		}
-		reply, err = this.Exec("EVAL", append([]interface{}{content}, args)...)
+		reply, err = this.Exec("EVAL", joinArgs(content, args)...)
 	}
 	return
 }
@@ -73,4 +71,8 @@ func NewPool(addr string, nConn, nChan int32) *Pool {
 	}
 
 	return pool
+}
+
+func joinArgs(s interface{}, args []interface{}) []interface{} {
+	return append([]interface{}{s}, args...)
 }

@@ -5,6 +5,8 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	//"fmt"
+	"fmt"
 )
 
 //lua脚本支持
@@ -21,6 +23,7 @@ func (this *LuaEval) readFile() (content []byte, err error) {
 	}
 
 	content, err = ioutil.ReadAll(f)
+	fmt.Println(string(content), err)
 	return
 }
 
