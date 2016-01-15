@@ -3,7 +3,7 @@ package asredis
 import (
 //	"time"
 	"sync/atomic"
-	"fmt"
+	//"fmt"
 )
 
 // 用来保存连接至单个redis进程的多个连接
@@ -41,7 +41,7 @@ func (this *Pool) Eval(l *LuaEval, args ...interface{}) (reply *Reply, err error
 	reply, err = this.Exec("EVALSHA", joinArgs(l.hash, args)...)
 
 	if reply.Type == ERROR {
-		content := []byte{}
+		var content string
 		content, err = l.readFile()
 		if err != nil {
 			return

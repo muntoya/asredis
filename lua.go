@@ -5,8 +5,8 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"encoding/hex"
 	//"fmt"
-	"fmt"
 )
 
 //lua脚本支持
@@ -15,15 +15,16 @@ type LuaEval struct {
 	hash        string
 }
 
-func (this *LuaEval) readFile() (content []byte, err error) {
+func (this *LuaEval) readFile() (content string, err error) {
 	var f *os.File
 	f, err = os.Open(this.fileName)
 	if err != nil {
 		return
 	}
 
-	content, err = ioutil.ReadAll(f)
-	fmt.Println(string(content), err)
+	var c []byte
+	c, err = ioutil.ReadAll(f)
+	content = string(c)
 	return
 }
 
@@ -42,7 +43,8 @@ func NewLuaEval(fileName string) (l *LuaEval, err error) {
 
 	l = &LuaEval{
 		fileName: fileName,
-		hash: string(h.Sum(nil)),
+		hash: hex.EncodeToString(h.Sum(nil)),
 	}
+
 	return
 }
