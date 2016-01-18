@@ -21,7 +21,6 @@ type SubMsg struct {
 type PubsubClient struct {
 	redisClient *Connection
 	replyChan   chan *Request
-	subTick     time.Ticker
 	messageChan chan *SubMsg
 	subChan     chan error
 	unsubChan   chan error
