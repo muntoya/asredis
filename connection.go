@@ -29,15 +29,15 @@ type Request struct {
 	Done  chan *Request
 }
 
-func (this *Request) done() {
-	if this.Done != nil {
-		this.Done <- this
+func (r *Request) done() {
+	if r.Done != nil {
+		r.Done <- r
 	}
 }
 
-func (this *Request) GetReply() (*Reply, error) {
-	<-this.Done
-	return this.reply, this.err
+func (r *Request) GetReply() (*Reply, error) {
+	<-r.Done
+	return r.reply, r.err
 }
 
 type ctrlType byte
@@ -68,170 +68,170 @@ type Connection struct {
 	lastConnect time.Time
 }
 
-func (this *Connection) String() string {
-	return this.addr
+func (c *Connection) String() string {
+	return c.addr
 }
 
-func (this *Connection) Connect() {
-	this.connected = false
+func (c *Connection) Connect() {
+	c.connected = false
 
 	var err error
-	this.Conn, err = net.DialTimeout("tcp", this.addr, connectTimeout)
+	c.Conn, err = net.DialTimeout("tcp", c.addr, connectTimeout)
 	if err != nil {
-		this.err = err
-		log.Printf("can't connect to redis %v, error:%v", this.addr, err)
+		c.err = err
+		log.Printf("can't connect to redis %v, error:%v", c.addr, err)
 		return
 	}
 
-	this.readBuffer = bufio.NewReader(this.Conn)
-	this.writeBuffer = bufio.NewWriter(this.Conn)
+	c.readBuffer = bufio.NewReader(c.Conn)
+	c.writeBuffer = bufio.NewWriter(c.Conn)
 
-	this.connected = true
-	this.err = nil
+	c.connected = true
+	c.err = nil
 }
 
-func (this *Connection) Close() {
-	this.conMutex.Lock()
-	defer this.conMutex.Unlock()
+func (c *Connection) Close() {
+	c.conMutex.Lock()
+	defer c.conMutex.Unlock()
 
-	this.sendShutdownCtrl()
-	this.stop = true
-	this.connected = false
+	c.sendShutdownCtrl()
+	c.stop = true
+	c.connected = false
 }
 
-func (this *Connection) Ping() {
-	this.Go(nil, "PING")
+func (c *Connection) Ping() {
+	c.Go(nil, "PING")
 }
 
-func (this *Connection) IsShutDown() bool {
-	return this.stop
+func (c *Connection) IsShutDown() bool {
+	return c.stop
 }
 
-func (this *Connection) IsConnected() bool {
-	return this.connected
+func (c *Connection) IsConnected() bool {
+	return c.connected
 }
 
-func (this *Connection) sendReconnectCtrl() {
-	this.ctrlChan <- ctrlReconnect
+func (c *Connection) sendReconnectCtrl() {
+	c.ctrlChan <- ctrlReconnect
 }
 
-func (this *Connection) sendShutdownCtrl() {
-	this.ctrlChan <- ctrlShutdown
+func (c *Connection) sendShutdownCtrl() {
+	c.ctrlChan <- ctrlShutdown
 }
 
-func (this *Connection) send(req *Request) {
-	writeReqToBuf(this.writeBuffer, req)
+func (c *Connection) send(req *Request) {
+	writeReqToBuf(c.writeBuffer, req)
 }
 
-func (this *Connection) Go(done chan *Request, cmd string, args ...interface{}) *Request {
+func (c *Connection) Go(done chan *Request, cmd string, args ...interface{}) *Request {
 	req := newRequst(done, cmd, args...)
-	this.sendRequest(req, false)
+	c.sendRequest(req, false)
 	return req
 }
 
-func (this *Connection) Call(done chan *Request, cmd string, args ...interface{}) (*Reply, error) {
-	req := this.Go(done, cmd, args...)
+func (c *Connection) Call(done chan *Request, cmd string, args ...interface{}) (*Reply, error) {
+	req := c.Go(done, cmd, args...)
 	return req.GetReply()
 }
 
-func (this *Connection) sendRequest(req *Request, onlySend bool) {
+func (c *Connection) sendRequest(req *Request, onlySend bool) {
 
-	this.conMutex.Lock()
+	c.conMutex.Lock()
 	defer func() {
 		if err := recover(); err != nil {
 			req.err = err.(error)
 			req.done()
-			this.connected = false
-			this.sendReconnectCtrl()
+			c.connected = false
+			c.sendReconnectCtrl()
 		}
-		this.conMutex.Unlock()
+		c.conMutex.Unlock()
 	}()
 
-	if this.IsShutDown() {
+	if c.IsShutDown() {
 		panic(ErrNotRunning)
 	}
 
-	if !this.IsConnected() {
+	if !c.IsConnected() {
 		panic(ErrNotConnected)
 	}
 
-	this.send(req)
+	c.send(req)
 	if !onlySend {
-		this.reqsPending <- req
+		c.reqsPending <- req
 	}
 }
 
-func (this *Connection) PubsubWait(done chan *Request) (*Reply, error) {
+func (c *Connection) PubsubWait(done chan *Request) (*Reply, error) {
 	req := newRequst(done, "")
-	this.reqsPending <- req
+	c.reqsPending <- req
 	return req.GetReply()
 }
 
-func (this *Connection) PubsubSend(cmd string, args ...interface{}) error {
+func (c *Connection) PubsubSend(cmd string, args ...interface{}) error {
 	req := newRequst(nil, cmd, args...)
-	this.sendRequest(req, true)
+	c.sendRequest(req, true)
 	return req.err
 }
 
-func (this *Connection) recover(err error) {
-	this.conMutex.Lock()
-	defer this.conMutex.Unlock()
+func (c *Connection) recover(err error) {
+	c.conMutex.Lock()
+	defer c.conMutex.Unlock()
 
 	//一定时间段内只尝试重连一次
-	if this.lastConnect.Add(intervalReconnect).After(time.Now()) {
+	if c.lastConnect.Add(intervalReconnect).After(time.Now()) {
 		return
 	}
 
-	this.lastConnect = time.Now()
-	this.clear(err)
-	this.Connect()
+	c.lastConnect = time.Now()
+	c.clear(err)
+	c.Connect()
 }
 
 //清空等待的请求
-func (this *Connection) clear(err error) {
-	close(this.reqsPending)
-	for req := range this.reqsPending {
+func (c *Connection) clear(err error) {
+	close(c.reqsPending)
+	for req := range c.reqsPending {
 		req.err = err
 		req.done()
 	}
-	this.reqsPending = make(chan *Request, 100)
+	c.reqsPending = make(chan *Request, 100)
 }
 
-func (this *Connection) control(ctrl ctrlType) {
+func (c *Connection) control(ctrl ctrlType) {
 	switch ctrl {
 	case ctrlReconnect:
-		this.recover(ErrNotConnected)
+		c.recover(ErrNotConnected)
 	case ctrlShutdown:
-		this.stop = true
-		if this.Conn != nil {
-			this.Conn.Close()
+		c.stop = true
+		if c.Conn != nil {
+			c.Conn.Close()
 		}
-		this.clear(ErrNotRunning)
+		c.clear(ErrNotRunning)
 	default:
 		log.Panic(ErrUnexpectedCtrlType)
 	}
 }
 
 //处理读请求和控制请求
-func (this *Connection) process() {
+func (c *Connection) process() {
 	for {
-		if this.stop {
+		if c.stop {
 			break
 		}
 
 		select {
-		case ctrl := <-this.ctrlChan:
-			this.control(ctrl)
-		case req := <-this.reqsPending:
-			this.read(req)
-		case <-this.pingTick:
-			this.Ping()
+		case ctrl := <-c.ctrlChan:
+			c.control(ctrl)
+		case req := <-c.reqsPending:
+			c.read(req)
+		case <-c.pingTick:
+			c.Ping()
 		}
 	}
 }
 
-func (this *Connection) read(req *Request) {
-	if this.IsShutDown() {
+func (c *Connection) read(req *Request) {
+	if c.IsShutDown() {
 		return
 	}
 
@@ -239,13 +239,13 @@ func (this *Connection) read(req *Request) {
 		if err := recover(); err != nil {
 			e := err.(error)
 			req.err = e
-			this.recover(e)
+			c.recover(e)
 		}
 
 		req.done()
 	}()
 
-	req.reply = readReply(this.readBuffer)
+	req.reply = readReply(c.readBuffer)
 }
 
 func NewConnection(addr string) (client *Connection) {

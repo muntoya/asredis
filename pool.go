@@ -16,29 +16,29 @@ type Pool struct {
 	msgID       int32
 }
 
-func (this *Pool) Exec(cmd string, args ...interface{}) (reply *Reply, err error) {
-	msgID := atomic.AddInt32(&this.msgID, 1)
-	connID := msgID % this.nConn
-	conn := this.clients[connID]
-	c := <-this.replyChan
+func (p *Pool) Exec(cmd string, args ...interface{}) (reply *Reply, err error) {
+	msgID := atomic.AddInt32(&p.msgID, 1)
+	connID := msgID % p.nConn
+	conn := p.clients[connID]
+	c := <-p.replyChan
 	reply, err = conn.Call(c, cmd, args...)
-	this.replyChan <- c
+	p.replyChan <- c
 	return
 }
 
-func (this *Pool) Close() {
-	for _, c := range this.clients {
+func (p *Pool) Close() {
+	for _, c := range p.clients {
 		c.Close()
 	}
 
-	close(this.replyChan)
-	for c := range this.replyChan {
+	close(p.replyChan)
+	for c := range p.replyChan {
 		close(c)
 	}
 }
 
-func (this *Pool) Eval(l *LuaEval, args ...interface{}) (reply *Reply, err error) {
-	reply, err = this.Exec("EVALSHA", joinArgs(l.hash, args)...)
+func (p *Pool) Eval(l *LuaEval, args ...interface{}) (reply *Reply, err error) {
+	reply, err = p.Exec("EVALSHA", joinArgs(l.hash, args)...)
 
 	if reply.Type == ERROR {
 		var content string
@@ -46,7 +46,7 @@ func (this *Pool) Eval(l *LuaEval, args ...interface{}) (reply *Reply, err error
 		if err != nil {
 			return
 		}
-		reply, err = this.Exec("EVAL", joinArgs(content, args)...)
+		reply, err = p.Exec("EVAL", joinArgs(content, args)...)
 	}
 	return
 }

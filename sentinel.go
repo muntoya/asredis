@@ -15,9 +15,9 @@ type SConnection struct {
 	commandChan chan *Request
 }
 
-func (this *SConnection) GetMasters() (ppArray []*ConnProp, err error) {
+func (s *SConnection) GetMasters() (ppArray []*ConnProp, err error) {
 	var reply *Reply
-	reply, err = this.Call(this.commandChan, "SENTINEL", "masters")
+	reply, err = s.Call(s.commandChan, "SENTINEL", "masters")
 	if err != nil {
 		return
 	}
@@ -26,9 +26,9 @@ func (this *SConnection) GetMasters() (ppArray []*ConnProp, err error) {
 	return
 }
 
-func (this *SConnection) GetMaster(master string) (pp *ConnProp, err error) {
+func (s *SConnection) GetMaster(master string) (pp *ConnProp, err error) {
 	var reply *Reply
-	reply ,err = this.Call(this.commandChan, "SENTINEL", "master", master)
+	reply ,err = s.Call(s.commandChan, "SENTINEL", "master", master)
 	if err != nil {
 		return
 	}
@@ -36,9 +36,9 @@ func (this *SConnection) GetMaster(master string) (pp *ConnProp, err error) {
 	return
 }
 
-func (this *SConnection) GetMasterAddr(master string) (ip, port string, err error) {
+func (s *SConnection) GetMasterAddr(master string) (ip, port string, err error) {
 	var reply *Reply
-	reply, err = this.Call(this.commandChan, "SENTINEL", "get-master-addr-by-name", master)
+	reply, err = s.Call(s.commandChan, "SENTINEL", "get-master-addr-by-name", master)
 	if err != nil {
 		return
 	}
@@ -51,9 +51,9 @@ func (this *SConnection) GetMasterAddr(master string) (ip, port string, err erro
 	return
 }
 
-func (this *SConnection) GetSlaves(master string) (ppArray []*ConnProp, err error) {
+func (s *SConnection) GetSlaves(master string) (ppArray []*ConnProp, err error) {
 	var reply *Reply
-	reply ,err = this.Call(this.commandChan, "SENTINEL", "slaves", master)
+	reply ,err = s.Call(s.commandChan, "SENTINEL", "slaves", master)
 	if err != nil {
 		return
 	}

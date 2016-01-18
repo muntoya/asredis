@@ -41,15 +41,15 @@ func NewPubsubClient(addr string) (pubsubClient *PubsubClient) {
 	return pubsubClient
 }
 
-func (this *PubsubClient) Sub(channel ...interface{}) (err error) {
-	err = this.redisClient.PubsubSend("SUBSCRIBE", channel...)
+func (p *PubsubClient) Sub(channel ...interface{}) (err error) {
+	err = p.redisClient.PubsubSend("SUBSCRIBE", channel...)
 	if err != nil {
 		return
 	}
 
 	subTick := time.After(commandTimeout)
 	select {
-	case err = <-this.subChan:
+	case err = <-p.subChan:
 	case <-subTick:
 		err = ErrWaitReplyTimeout
 	}
@@ -57,12 +57,12 @@ func (this *PubsubClient) Sub(channel ...interface{}) (err error) {
 	return
 }
 
-func (this *PubsubClient) UnSub(channel ...interface{}) (err error) {
-	err = this.redisClient.PubsubSend("UBSUBSCRIBE", channel...)
+func (p *PubsubClient) UnSub(channel ...interface{}) (err error) {
+	err = p.redisClient.PubsubSend("UBSUBSCRIBE", channel...)
 
 	subTick := time.After(commandTimeout)
 	select {
-	case err = <-this.unsubChan:
+	case err = <-p.unsubChan:
 	case <-subTick:
 		err = ErrWaitReplyTimeout
 	}
@@ -70,9 +70,9 @@ func (this *PubsubClient) UnSub(channel ...interface{}) (err error) {
 	return
 }
 
-func (this *PubsubClient) process() {
+func (p *PubsubClient) process() {
 	for {
-		reply, err := this.redisClient.PubsubWait(this.replyChan)
+		reply, err := p.redisClient.PubsubWait(p.replyChan)
 		if err != nil {
 			log.Panic("read sub reply error: %v\n", err)
 		} else {
@@ -89,15 +89,15 @@ func (this *PubsubClient) process() {
 			switch t {
 			case "message":
 				msg := SubMsg{Channel: reply.Array[1].(string), Value: reply.Array[2].(string)}
-				this.messageChan <- &msg
+				p.messageChan <- &msg
 			case "subscribe":
 				select {
-				case this.subChan <- err:
+				case p.subChan <- err:
 				default:
 				}
 			case "unsubscribe":
 				select {
-				case this.subChan <- err:
+				case p.subChan <- err:
 				default:
 				}
 			default:
@@ -107,7 +107,7 @@ func (this *PubsubClient) process() {
 	}
 }
 
-func (this *PubsubClient) GetMessage(timeout time.Duration) *SubMsg {
+func (p *PubsubClient) GetMessage(timeout time.Duration) *SubMsg {
 	var tick <-chan time.Time
 	if timeout == 0 {
 		tick = time.After(getReplyTimeout)
@@ -116,7 +116,7 @@ func (this *PubsubClient) GetMessage(timeout time.Duration) *SubMsg {
 	}
 
 	select {
-	case msg := <-this.messageChan:
+	case msg := <-p.messageChan:
 		return msg
 	case <-tick:
 		return nil

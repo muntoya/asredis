@@ -15,9 +15,9 @@ type LuaEval struct {
 	hash        string
 }
 
-func (this *LuaEval) readFile() (content string, err error) {
+func (l *LuaEval) readFile() (content string, err error) {
 	var f *os.File
-	f, err = os.Open(this.fileName)
+	f, err = os.Open(l.fileName)
 	if err != nil {
 		return
 	}
