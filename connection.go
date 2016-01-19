@@ -6,7 +6,14 @@ import (
 	"net"
 	"sync"
 	"time"
+	"errors"
 	//	"runtime/debug"
+)
+
+var (
+	ErrNotConnected = errors.New("redis: not connected")
+	ErrNotRunning = errors.New("redis: shutdown and can't use any more")
+	ErrUnexpectedCtrlType = errors.New("redis: can't process control command")
 )
 
 const (

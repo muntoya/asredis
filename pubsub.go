@@ -4,6 +4,11 @@ import (
 	//	"fmt"
 	"log"
 	"time"
+	"errors"
+)
+
+var (
+	ErrWaitReplyTimeout = errors.New("redis: wait reply time out")
 )
 
 const (
