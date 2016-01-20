@@ -107,7 +107,7 @@ func (c *Connection) Close() {
 }
 
 func (c *Connection) Ping() {
-	c.Go(nil, "PING")
+	c.asyncCall(nil, "PING")
 }
 
 func (c *Connection) IsShutDown() bool {
@@ -130,14 +130,14 @@ func (c *Connection) send(req *Request) {
 	writeReqToBuf(c.writeBuffer, req)
 }
 
-func (c *Connection) Go(done chan *Request, cmd string, args ...interface{}) *Request {
+func (c *Connection) asyncCall(done chan *Request, cmd string, args ...interface{}) *Request {
 	req := newRequst(done, cmd, args...)
 	c.sendRequest(req, false)
 	return req
 }
 
-func (c *Connection) Call(done chan *Request, cmd string, args ...interface{}) (*Reply, error) {
-	req := c.Go(done, cmd, args...)
+func (c *Connection) call(done chan *Request, cmd string, args ...interface{}) (*Reply, error) {
+	req := c.asyncCall(done, cmd, args...)
 	return req.GetReply()
 }
 
@@ -168,13 +168,13 @@ func (c *Connection) sendRequest(req *Request, onlySend bool) {
 	}
 }
 
-func (c *Connection) PubsubWait(done chan *Request) (*Reply, error) {
+func (c *Connection) pubsubWait(done chan *Request) (*Reply, error) {
 	req := newRequst(done, "")
 	c.reqsPending <- req
 	return req.GetReply()
 }
 
-func (c *Connection) PubsubSend(cmd string, args ...interface{}) error {
+func (c *Connection) pubsubSend(cmd string, args ...interface{}) error {
 	req := newRequst(nil, cmd, args...)
 	c.sendRequest(req, true)
 	return req.err

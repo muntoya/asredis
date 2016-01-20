@@ -21,7 +21,7 @@ func (p *Pool) Exec(cmd string, args ...interface{}) (reply *Reply, err error) {
 	connID := msgID % p.nConn
 	conn := p.clients[connID]
 	c := <-p.replyChan
-	reply, err = conn.Call(c, cmd, args...)
+	reply, err = conn.call(c, cmd, args...)
 	p.replyChan <- c
 	return
 }

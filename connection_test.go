@@ -13,7 +13,7 @@ func TestConnection(t *testing.T) {
 	defer client.Close()
 
 	c := make(chan *Request, 1)
-	reply, err := client.Call(c, "SET", "int", 2)
+	reply, err := client.call(c, "SET", "int", 2)
 	if err != nil {
 		t.Fatal(err)
 	} else {
@@ -23,7 +23,7 @@ func TestConnection(t *testing.T) {
 	assert.Equal(t, reply.Type, STRING)
 	assert.Equal(t, reply.Value, "OK")
 
-	reply, err = client.Call(c, "GET", "int")
+	reply, err = client.call(c, "GET", "int")
 	if err != nil {
 		t.Fatal(err)
 	} else {
@@ -31,9 +31,9 @@ func TestConnection(t *testing.T) {
 	}
 
 	l := []interface{}{"1", "2", "3", "4", "5"}
-	client.Call(c, "DEL", "list")
-	reply, err = client.Call(c, "RPUSH", append([]interface{}{"list"}, l...)...)
-	reply, err = client.Call(c, "LRANGE", "list", 0, -1)
+	client.call(c, "DEL", "list")
+	reply, err = client.call(c, "RPUSH", append([]interface{}{"list"}, l...)...)
+	reply, err = client.call(c, "LRANGE", "list", 0, -1)
 	assert.Equal(t, reply.Array, l)
 }
 
@@ -50,7 +50,7 @@ func TestError(t *testing.T) {
 
 	for i:= 0; i < 3; i++ {
 		fmt.Println("go", i)
-		reply, err := client.Call(c, "GET", "int")
+		reply, err := client.call(c, "GET", "int")
 		fmt.Println(i, err)
 		if err == nil {
 			t.Log(reply.Type, reply.Value)

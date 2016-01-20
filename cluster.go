@@ -14,11 +14,20 @@ type Cluster struct {
 	addrs   []string
 }
 
+func (c *Cluster) connect() {
+
+}
 
 func (c *Cluster) checkCluster() {
 
 }
 
 func NewCluster(addrs []string) (cluster *Cluster) {
+	cluster = &Cluster {
+		addrs: addrs,
+	}
+
+	cluster.connect()
+	
 	return
 }

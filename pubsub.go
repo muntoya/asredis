@@ -46,7 +46,7 @@ func NewPubsubClient(addr string) (pubsubClient *PubsubClient) {
 }
 
 func (p *PubsubClient) Sub(channel ...interface{}) (err error) {
-	err = p.redisClient.PubsubSend("SUBSCRIBE", channel...)
+	err = p.redisClient.pubsubSend("SUBSCRIBE", channel...)
 	if err != nil {
 		return
 	}
@@ -62,7 +62,7 @@ func (p *PubsubClient) Sub(channel ...interface{}) (err error) {
 }
 
 func (p *PubsubClient) UnSub(channel ...interface{}) (err error) {
-	err = p.redisClient.PubsubSend("UBSUBSCRIBE", channel...)
+	err = p.redisClient.pubsubSend("UBSUBSCRIBE", channel...)
 
 	subTick := time.After(commandTimeout)
 	select {
@@ -76,7 +76,7 @@ func (p *PubsubClient) UnSub(channel ...interface{}) (err error) {
 
 func (p *PubsubClient) process() {
 	for {
-		reply, err := p.redisClient.PubsubWait(p.replyChan)
+		reply, err := p.redisClient.pubsubWait(p.replyChan)
 		if err != nil {
 			log.Panic("read sub reply error: %v\n", err)
 		} else {

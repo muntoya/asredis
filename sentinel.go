@@ -17,7 +17,7 @@ type SConnection struct {
 
 func (s *SConnection) GetMasters() (ppArray []*ConnProp, err error) {
 	var reply *Reply
-	reply, err = s.Call(s.commandChan, "SENTINEL", "masters")
+	reply, err = s.call(s.commandChan, "SENTINEL", "masters")
 	if err != nil {
 		return
 	}
@@ -28,7 +28,7 @@ func (s *SConnection) GetMasters() (ppArray []*ConnProp, err error) {
 
 func (s *SConnection) GetMaster(master string) (pp *ConnProp, err error) {
 	var reply *Reply
-	reply ,err = s.Call(s.commandChan, "SENTINEL", "master", master)
+	reply ,err = s.call(s.commandChan, "SENTINEL", "master", master)
 	if err != nil {
 		return
 	}
@@ -38,7 +38,7 @@ func (s *SConnection) GetMaster(master string) (pp *ConnProp, err error) {
 
 func (s *SConnection) GetMasterAddr(master string) (ip, port string, err error) {
 	var reply *Reply
-	reply, err = s.Call(s.commandChan, "SENTINEL", "get-master-addr-by-name", master)
+	reply, err = s.call(s.commandChan, "SENTINEL", "get-master-addr-by-name", master)
 	if err != nil {
 		return
 	}
@@ -53,7 +53,7 @@ func (s *SConnection) GetMasterAddr(master string) (ip, port string, err error) 
 
 func (s *SConnection) GetSlaves(master string) (ppArray []*ConnProp, err error) {
 	var reply *Reply
-	reply ,err = s.Call(s.commandChan, "SENTINEL", "slaves", master)
+	reply ,err = s.call(s.commandChan, "SENTINEL", "slaves", master)
 	if err != nil {
 		return
 	}
