@@ -11,7 +11,7 @@ import (
 func TestConnection(t *testing.T) {
 	t.Skip("skip connection test")
 	client:= NewConnection("127.0.0.1:6379")
-	defer client.Close()
+	defer client.close()
 
 	c := make(chan *Request, 1)
 	reply, err := client.call(c, "SET", "int", 2)

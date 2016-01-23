@@ -23,19 +23,19 @@ func (p *MSPool) Connect() {
 }
 
 func (p *MSPool) checkSentinel() {
-	if p.sentinel != nil && p.sentinel.IsConnected() {
+	if p.sentinel != nil && p.sentinel.isConnected() {
 		return
 	}
 
 	if p.sentinel != nil {
-		p.sentinel.Close()
+		p.sentinel.close()
 		p.sentinel = nil
 	}
 
 	for _, addr := range p.sentinelAddrs {
 		p.sentinel = NewSConnection(addr)
-		if !p.sentinel.IsConnected() {
-			p.sentinel.Close()
+		if !p.sentinel.isConnected() {
+			p.sentinel.close()
 		}
 	}
 }

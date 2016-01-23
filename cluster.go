@@ -28,12 +28,12 @@ func (c *Cluster) connect() (error) {
 	var conn *Connection
 	for _, addr := range c.addrs {
 		conn = NewConnection(addr)
-		if conn.IsConnected() {
+		if conn.isConnected() {
 			break
 		}
 	}
 
-	if conn == nil || !conn.IsConnected() {
+	if conn == nil || !conn.isConnected() {
 		return ErrClusterNoService
 	}
 

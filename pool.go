@@ -28,7 +28,7 @@ func (p *Pool) Exec(cmd string, args ...interface{}) (reply *Reply, err error) {
 
 func (p *Pool) Close() {
 	for _, c := range p.clients {
-		c.Close()
+		c.close()
 	}
 
 	close(p.replyChan)

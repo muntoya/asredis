@@ -75,11 +75,7 @@ type Connection struct {
 	lastConnect time.Time
 }
 
-func (c *Connection) String() string {
-	return c.addr
-}
-
-func (c *Connection) Connect() {
+func (c *Connection) connect() {
 	c.connected = false
 
 	var err error
@@ -97,7 +93,7 @@ func (c *Connection) Connect() {
 	c.err = nil
 }
 
-func (c *Connection) Close() {
+func (c *Connection) close() {
 	c.conMutex.Lock()
 	defer c.conMutex.Unlock()
 
@@ -106,15 +102,15 @@ func (c *Connection) Close() {
 	c.connected = false
 }
 
-func (c *Connection) Ping() {
+func (c *Connection) ping() {
 	c.asyncCall(nil, "PING")
 }
 
-func (c *Connection) IsShutDown() bool {
+func (c *Connection) isShutDown() bool {
 	return c.stop
 }
 
-func (c *Connection) IsConnected() bool {
+func (c *Connection) isConnected() bool {
 	return c.connected
 }
 
@@ -154,11 +150,11 @@ func (c *Connection) sendRequest(req *Request, onlySend bool) {
 		c.conMutex.Unlock()
 	}()
 
-	if c.IsShutDown() {
+	if c.isShutDown() {
 		panic(ErrNotRunning)
 	}
 
-	if !c.IsConnected() {
+	if !c.isConnected() {
 		panic(ErrNotConnected)
 	}
 
@@ -191,7 +187,7 @@ func (c *Connection) recover(err error) {
 
 	c.lastConnect = time.Now()
 	c.clear(err)
-	c.Connect()
+	c.connect()
 }
 
 //清空等待的请求
@@ -232,13 +228,13 @@ func (c *Connection) process() {
 		case req := <-c.reqsPending:
 			c.read(req)
 		case <-c.pingTick:
-			c.Ping()
+			c.ping()
 		}
 	}
 }
 
 func (c *Connection) read(req *Request) {
-	if c.IsShutDown() {
+	if c.isShutDown() {
 		return
 	}
 
@@ -266,7 +262,7 @@ func NewConnection(addr string) (client *Connection) {
 		lastConnect: time.Now(),
 	}
 
-	client.Connect()
+	client.connect()
 
 	go client.process()
 
