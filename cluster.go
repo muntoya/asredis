@@ -2,6 +2,7 @@ package asredis
 
 import (
 	"errors"
+	"fmt"
 )
 
 var (
@@ -10,15 +11,16 @@ var (
 
 const numSlots = 16384
 
-type mapping [numSlots]string
+type mapping [numSlots]*CPool
 
 type CPool struct {
 	*Pool
-	slot    []int
+
 }
 
 type Cluster struct {
-	pools	map [string]Pool
+	mapping
+	pools	[]*CPool
 	addrs   []string
 }
 
@@ -35,11 +37,21 @@ func (c *Cluster) connect() (error) {
 		return ErrClusterNoService
 	}
 
+	getNodes(conn)
+	getSlots(conn)
 	return nil
 }
 
-func (c *Cluster) getNodes() {
+func getSlots(conn *Connection) {
+	c := make(chan *Request, 1)
+	r, err := conn.call(c, "CLUSTER", "slots")
+	fmt.Println(r, err)
+}
 
+func getNodes(conn *Connection) {
+	c := make(chan *Request, 1)
+	r, err := conn.call(c, "CLUSTER", "nodes")
+	fmt.Println(r, err)
 }
 
 func (c *Cluster) checkCluster() {
