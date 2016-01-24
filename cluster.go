@@ -3,8 +3,6 @@ package asredis
 import (
 	"errors"
 	"fmt"
-	"strings"
-	"strconv"
 )
 
 var (
@@ -73,7 +71,7 @@ func getSlots(conn *Connection) (slotsArray []*Slots, err error) {
 
 		addrs := info[2].([]interface{})
 
-		for i := 0; i < len(addrs); i++ {
+		for i := 0; i < len(addrs); i+=2 {
 			addr := fmt.Sprintf("%s:%d", addrs[0].(string), addrs[1].(int))
 			slots.addrs = append(slots.addrs, addr)
 			fmt.Println("slots", slots)
