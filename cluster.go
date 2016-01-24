@@ -67,24 +67,19 @@ func getSlots(conn *Connection) (slotsArray []*Slots, err error) {
 	for _, s := range r.Array {
 		info := s.([]interface{})
 		slots := &Slots{}
-		var i int
-		i, err = strconv.Atoi(info[0].(string))
-		if err != nil {
-			return
-		}
-		slots.begin = uint16(i)
 
-		i, err = strconv.Atoi(info[1].(string))
-		if err != nil {
-			return
-		}
-		slots.end = uint16(i)
+		slots.begin = uint16(info[0].(int))
+		slots.end = uint16(info[1].(int))
 
-		for _, c := range info[2].([]interface{}) {
-			append(slots.addrs, strings.Join(c.([]string), ":"))
+		addrs := info[2].([]interface{})
+
+		for i := 0; i < len(addrs); i++ {
+			addr := fmt.Sprintf("%s:%d", addrs[0].(string), addrs[1].(int))
+			slots.addrs = append(slots.addrs, addr)
+			fmt.Println("slots", slots)
 		}
 
-		append(slotsArray, slots)
+		slotsArray = append(slotsArray, slots)
 	}
 
 	fmt.Println("slots:", slotsArray)
