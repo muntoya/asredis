@@ -46,6 +46,19 @@ func (c *Cluster) updateSlots() (err error) {
 	}()
 
 	var conn *Connection
+	conn, err = c.getConn()
+	if err != nil {
+		return
+	}
+
+	var slotsArray []*Slots
+	slotsArray, err = getSlots(conn)
+	fmt.Println("slots:", slotsArray)
+
+	return
+}
+
+func (c *Cluster) getConn() (conn *Connection, err error) {
 	for _, addr := range c.addrs {
 		conn = NewConnection(addr)
 		if conn.isConnected() {
@@ -54,14 +67,10 @@ func (c *Cluster) updateSlots() (err error) {
 	}
 
 	if conn == nil || !conn.isConnected() {
-		return ErrClusterNoService
+		err = ErrClusterNoService
 	}
 
-	var slotsArray []*Slots
-	slotsArray, err = getSlots(conn)
-	fmt.Println("slots:", slotsArray)
-
-	return err
+	return conn, err
 }
 
 func getSlots(conn *Connection) (slotsArray []*Slots, err error) {
