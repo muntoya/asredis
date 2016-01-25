@@ -3,6 +3,7 @@ package asredis
 import (
 	"errors"
 	"fmt"
+	"log"
 )
 
 var (
@@ -23,6 +24,7 @@ type Cluster struct {
 	mapping
 	pools	[]*CPool
 	addrs   []string
+	slots   []*Slots
 }
 
 type Slots struct {
@@ -31,6 +33,18 @@ type Slots struct {
 	addrs	[]string
 }
 func (c *Cluster) connect() (error) {
+	c.updateSlots()
+
+	return nil
+}
+
+func (c *Cluster) updateSlots() (err error) {
+	defer func() {
+		if e := recover(); e != nil {
+			log.Panicf("update slots info error: %v", err)
+		}
+	}()
+
 	var conn *Connection
 	for _, addr := range c.addrs {
 		conn = NewConnection(addr)
@@ -43,9 +57,11 @@ func (c *Cluster) connect() (error) {
 		return ErrClusterNoService
 	}
 
-	getNodes(conn)
-	getSlots(conn)
-	return nil
+	var slotsArray []*Slots
+	slotsArray, err = getSlots(conn)
+	fmt.Println("slots:", slotsArray)
+
+	return err
 }
 
 func getSlots(conn *Connection) (slotsArray []*Slots, err error) {
@@ -79,8 +95,6 @@ func getSlots(conn *Connection) (slotsArray []*Slots, err error) {
 
 		slotsArray = append(slotsArray, slots)
 	}
-
-	fmt.Println("slots:", slotsArray)
 
 	return
 }
