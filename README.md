@@ -6,7 +6,6 @@ go开发的redis异步库。解决同步redis库在网络延迟上浪费掉的�
 提供以下功能
 - single connection，自动重连
 - connection pool
-- master-slave pool，自动向sentinel获取全部服务信息(暂不维护)
 - cluster
 - sub/pub
 - lua
