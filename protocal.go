@@ -64,6 +64,7 @@ func readReply(io *bufio.Reader)  (reply *Reply) {
 
 	b := readToCRLF(io)
 	reply = new(Reply)
+	fmt.Println(string(b))
 
 	switch  v := string(b[1:]); b[0] {
 	case ok_byte:
@@ -90,7 +91,13 @@ func readReply(io *bufio.Reader)  (reply *Reply) {
 			panic(err)
 		}
 
-		s := readToCRLF(io)
+		var s []byte
+		s, err = io.Peek(len)
+		if err != nil {
+			panic(err)
+		}
+		io.Discard(len)
+		fmt.Println(string(s))
 		reply.Value = string(s[0:len])
 
 	case array_byte:

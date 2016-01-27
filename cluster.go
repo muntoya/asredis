@@ -92,7 +92,6 @@ func getSlots(pool *Pool) (slotsArray []*ClusterSlots, err error) {
 	var r *Reply
 	r, err = pool.Exec("CLUSTER", "slots")
 	if err != nil {
-		fmt.Println("cmd slots", err)
 		return
 	}
 
