@@ -24,14 +24,21 @@ type Cluster struct {
 	mapping
 	pools	[]*CPool
 	addrs   []string
-	slots   []*Slots
+	slots   []*ClusterSlots
+
+	configChan  chan *Request
 }
 
-type Slots struct {
+type ClusterSlots struct {
 	begin	uint16
 	end		uint16
 	addrs	[]string
 }
+
+type ClusterInfo struct {
+
+}
+
 func (c *Cluster) connect() (error) {
 	c.updateSlots()
 
@@ -51,8 +58,8 @@ func (c *Cluster) updateSlots() (err error) {
 		return
 	}
 
-	var slotsArray []*Slots
-	slotsArray, err = getSlots(conn)
+	var slotsArray []*ClusterSlots
+	slotsArray, err = getSlots(conn, c.configChan)
 	fmt.Println("slots:", slotsArray)
 
 	return
@@ -73,11 +80,10 @@ func (c *Cluster) getConn() (conn *Connection, err error) {
 	return conn, err
 }
 
-func getSlots(conn *Connection) (slotsArray []*Slots, err error) {
-	c := make(chan *Request, 1)
+func getSlots(conn *Connection, ch chan *Request) (slotsArray []*ClusterSlots, err error) {
 
 	var r *Reply
-	r, err = conn.call(c, "CLUSTER", "slots")
+	r, err = conn.call(ch, "CLUSTER", "slots")
 	if err != nil {
 		return
 	}
@@ -89,7 +95,7 @@ func getSlots(conn *Connection) (slotsArray []*Slots, err error) {
 
 	for _, s := range r.Array {
 		info := s.([]interface{})
-		slots := &Slots{}
+		slots := &ClusterSlots{}
 
 		slots.begin = uint16(info[0].(int))
 		slots.end = uint16(info[1].(int))
@@ -108,9 +114,13 @@ func getSlots(conn *Connection) (slotsArray []*Slots, err error) {
 	return
 }
 
-func getNodes(conn *Connection) {
-	c := make(chan *Request, 1)
-	r, err := conn.call(c, "CLUSTER", "nodes")
+func getInfo(conn *Connection, ch chan *Request) {
+	r, err := conn.call(ch, "CLUSTER", "info")
+	fmt.Println(r, err)
+}
+
+func getNodes(conn *Connection, ch chan *Request) {
+	r, err := conn.call(ch, "CLUSTER", "nodes")
 	fmt.Println(r, err)
 }
 
@@ -121,6 +131,7 @@ func (c *Cluster) checkCluster() {
 func NewCluster(addrs []string) (cluster *Cluster, err error) {
 	cluster = &Cluster {
 		addrs: addrs,
+		configChan: make(chan *Request, 1),
 	}
 
 	err = cluster.connect()
