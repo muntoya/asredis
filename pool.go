@@ -16,6 +16,20 @@ type Pool struct {
 	msgID       int32
 }
 
+func (p *Pool) ConnsCreate() int32 {
+	return p.nConn
+}
+
+func (p *Pool) ConnsFail() int32 {
+	var i int32 = 0
+	for _, c := range p.clients {
+		if !c.isConnected() {
+			i++
+		}
+	}
+	return i
+}
+
 func (p *Pool) Exec(cmd string, args ...interface{}) (reply *Reply, err error) {
 	msgID := atomic.AddInt32(&p.msgID, 1)
 	connID := msgID % p.nConn
