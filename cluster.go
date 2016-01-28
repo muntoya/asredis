@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
+	"strconv"
 )
 
 var (
@@ -24,6 +26,7 @@ type Cluster struct {
 	pools []*CPool
 	addrs []string
 	slots []*ClusterSlots
+	info    *ClusterInfo
 }
 
 type ClusterSlots struct {
@@ -53,7 +56,7 @@ func (c *Cluster) connect() error {
 func (c *Cluster) updateSlots() (err error) {
 	defer func() {
 		if e := recover(); e != nil {
-			log.Panicf("update slots info error: %v", err)
+			log.Printf("update slots info error: %v", err)
 		}
 	}()
 
@@ -63,10 +66,10 @@ func (c *Cluster) updateSlots() (err error) {
 		return
 	}
 
-	getInfo(pool)
+	info := getInfo(pool)
+	fmt.Println(info)
 
-	var slotsArray []*ClusterSlots
-	slotsArray, err = getSlots(pool)
+	slotsArray := getSlots(pool)
 	fmt.Println("slots:", slotsArray)
 
 	return
@@ -87,17 +90,12 @@ func (c *Cluster) getPool() (pool *Pool, err error) {
 	return pool, err
 }
 
-func getSlots(pool *Pool) (slotsArray []*ClusterSlots, err error) {
-
-	var r *Reply
-	r, err = pool.Exec("CLUSTER", "slots")
-	if err != nil {
-		return
-	}
+func getSlots(pool *Pool) (slotsArray []*ClusterSlots) {
+	r, err := pool.Exec("CLUSTER", "slots")
+	checkError(err)
 
 	if r.Type != ARRAY {
-		err = ErrSlotsInfo
-		return
+		panic(ErrSlotsInfo)
 	}
 
 	for _, s := range r.Array {
@@ -112,7 +110,6 @@ func getSlots(pool *Pool) (slotsArray []*ClusterSlots, err error) {
 		for i := 0; i < len(addrs); i += 2 {
 			addr := fmt.Sprintf("%s:%d", addrs[0].(string), addrs[1].(int))
 			slots.addrs = append(slots.addrs, addr)
-			fmt.Println("slots", slots)
 		}
 
 		slotsArray = append(slotsArray, slots)
@@ -121,10 +118,38 @@ func getSlots(pool *Pool) (slotsArray []*ClusterSlots, err error) {
 	return
 }
 
-func getInfo(pool *Pool) (info *ClusterInfo, err error) {
-	var r *Reply
-	r, err = pool.Exec("CLUSTER", "info")
-	fmt.Println(r, err)
+func getInfo(pool *Pool) (info *ClusterInfo) {
+	r, err := pool.Exec("CLUSTER", "info")
+	checkError(err)
+
+	infoStr := r.Value.(string)
+	infoStr = strings.Trim(infoStr, "\r\n ")
+	attrs := strings.Split(infoStr, "\r\n")
+
+	info = new(ClusterInfo)
+	for _, attr := range attrs {
+		attr = strings.Trim(attr, "\r\n ")
+		kv := strings.SplitN(attr, ":", 2)
+		k, v := kv[0], kv[1]
+		switch k {
+		case "cluster_state":
+			if v == "ok" {
+				info.state = true
+			} else {
+				info.state = false
+			}
+
+		case "cluster_slots_assigned":
+			i, err := strconv.Atoi(v)
+			checkError(err)
+			info.slotsAssinged = i
+
+		case "cluster_current_epoch":
+			i, err := strconv.Atoi(v)
+			checkError(err)
+			info.currentEpoch = i
+		}
+	}
 	return
 }
 
