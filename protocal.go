@@ -39,15 +39,11 @@ const (
 
 func readToCRLF(io *bufio.Reader) []byte {
 	buf, err := io.ReadBytes(cr_byte)
-	if err != nil {
-		panic(err)
-	}
+	checkError(err)
 
 	var b byte
 	b, err = io.ReadByte()
-	if err != nil {
-		panic(err)
-	}
+	checkError(err)
 
 	if b != lf_byte {
 		panic(ErrExpectingLinefeed)
@@ -64,7 +60,6 @@ func readReply(io *bufio.Reader)  (reply *Reply) {
 
 	b := readToCRLF(io)
 	reply = new(Reply)
-	fmt.Println(string(b))
 
 	switch  v := string(b[1:]); b[0] {
 	case ok_byte:
@@ -78,33 +73,25 @@ func readReply(io *bufio.Reader)  (reply *Reply) {
 	case num_byte:
 		reply.Type = INTEGER
 		i, err := strconv.Atoi(string(v))
-		if err != nil {
-			panic(err)
-		} else {
-			reply.Value = i
-		}
+		checkError(err)
+		reply.Value = i
 
 	case size_byte:
 		reply.Type = BULK
 		len, err := strconv.Atoi(v)
-		if err != nil {
-			panic(err)
-		}
+		checkError(err)
 
-		var s []byte
-		s, err = io.Peek(len)
-		if err != nil {
-			panic(err)
-		}
-		io.Discard(len)
-		fmt.Println(string(s))
-		reply.Value = string(s[0:len])
+		s, err := io.Peek(len)
+		checkError(err)
+
+		l, err := io.Discard(len)
+		checkError(err)
+
+		reply.Value = string(s[0:l])
 
 	case array_byte:
 		len, err :=  strconv.Atoi(v)
-		if err != nil {
-			panic(err)
-		}
+		checkError(err)
 
 		reply.Type = ARRAY
 		reply.Array = readArray(io, len)
@@ -124,18 +111,14 @@ func readArray(io *bufio.Reader, len int)  (array []interface{}) {
 		switch s[0] {
 		case num_byte:
 			ele, err := strconv.Atoi(string(s[1:]))
-			if err != nil {
-				panic(err)
-			}
+			checkError(err)
 			array[i] = ele
 		case size_byte:
 			ele := readToCRLF(io)
 			array[i] = string(ele)
 		case array_byte:
 			l, err :=  strconv.Atoi(string(s[1:]))
-			if err != nil {
-				panic(err)
-			}
+			checkError(err)
 			array[i] = readArray(io, l)
 
 		default:
@@ -171,4 +154,10 @@ func writeReqToBuf(buf *bufio.Writer, req *Request) {
 	}
 
 	buf.Flush()
+}
+
+func checkError(err error) {
+	if err != nil {
+		panic(err)
+	}
 }
