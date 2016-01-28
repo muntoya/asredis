@@ -56,7 +56,8 @@ func (c *Cluster) connect() error {
 func (c *Cluster) updateSlots() (err error) {
 	defer func() {
 		if e := recover(); e != nil {
-			log.Printf("update slots info error: %v", err)
+			err = e.(error)
+			log.Printf("update slots info error: %v", e)
 		}
 	}()
 
@@ -68,6 +69,11 @@ func (c *Cluster) updateSlots() (err error) {
 
 	info := getInfo(pool)
 	fmt.Println(info)
+	if c.info != nil && c.info.currentEpoch > info.currentEpoch {
+		return
+	}
+
+	c.info = info
 
 	slotsArray := getSlots(pool)
 	fmt.Println("slots:", slotsArray)
@@ -92,6 +98,7 @@ func (c *Cluster) getPool() (pool *Pool, err error) {
 
 func getSlots(pool *Pool) (slotsArray []*ClusterSlots) {
 	r, err := pool.Exec("CLUSTER", "slots")
+	fmt.Println("exec err", err)
 	checkError(err)
 
 	if r.Type != ARRAY {
