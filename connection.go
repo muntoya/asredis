@@ -7,8 +7,9 @@ import (
 	"sync"
 	"time"
 	"errors"
-	//"runtime/debug"
+	"runtime/debug"
 	//"fmt"
+	"fmt"
 )
 
 var (
@@ -147,6 +148,7 @@ func (c *Connection) sendRequest(req *Request, onlySend bool) {
 			req.done()
 			c.connected = false
 			c.sendReconnectCtrl()
+			fmt.Println(string(debug.Stack()))
 		}
 		c.conMutex.Unlock()
 	}()
@@ -244,6 +246,7 @@ func (c *Connection) read(req *Request) {
 			e := err.(error)
 			req.err = e
 			c.recover(e)
+			fmt.Println(string(debug.Stack()))
 		}
 
 		req.done()

@@ -3,7 +3,7 @@ package asredis
 import (
 	"errors"
 	"fmt"
-	"log"
+	//"runtime/debug"
 	"strings"
 	"strconv"
 )
@@ -57,7 +57,7 @@ func (c *Cluster) updateSlots() (err error) {
 	defer func() {
 		if e := recover(); e != nil {
 			err = e.(error)
-			log.Printf("update slots info error: %v", e)
+			//fmt.Println(string(debug.Stack()))
 		}
 	}()
 
@@ -98,7 +98,6 @@ func (c *Cluster) getPool() (pool *Pool, err error) {
 
 func getSlots(pool *Pool) (slotsArray []*ClusterSlots) {
 	r, err := pool.Exec("CLUSTER", "slots")
-	fmt.Println("exec err", err)
 	checkError(err)
 
 	if r.Type != ARRAY {
