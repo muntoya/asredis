@@ -4,8 +4,9 @@ import (
 	"errors"
 	"fmt"
 	//"runtime/debug"
-	"strings"
 	"strconv"
+	"strings"
+	"sync"
 )
 
 var (
@@ -13,7 +14,11 @@ var (
 	ErrSlotsInfo        = errors.New("can't get infomation of slots")
 )
 
-const numSlots = 16384
+const (
+	numSlots = 16384
+	numConn = 10
+	numChan = 20
+)
 
 type mapping [numSlots]*CPool
 
@@ -22,11 +27,11 @@ type CPool struct {
 }
 
 type Cluster struct {
-	mapping
-	pools []*CPool
-	addrs []string
-	slots []*ClusterSlots
-	info    *ClusterInfo
+	mutex    sync.RWMutex
+	addrs    []string
+	slotsMap mapping
+	pools    [string]*CPool
+	info     *ClusterInfo
 }
 
 type ClusterSlots struct {
@@ -45,6 +50,11 @@ type ClusterInfo struct {
 	size          int
 	currentEpoch  int
 	myEpoch       int
+}
+
+func (c *Cluster) Exec(cmd string, args ...interface{}) (reply *Reply, err error) {
+
+	return
 }
 
 func (c *Cluster) connect() error {
@@ -69,7 +79,7 @@ func (c *Cluster) updateSlots() (err error) {
 
 	info := getInfo(pool)
 	fmt.Println(info)
-	if c.info != nil && c.info.currentEpoch > info.currentEpoch {
+	if c.info != nil && c.info.currentEpoch >= info.currentEpoch {
 		return
 	}
 
@@ -77,6 +87,16 @@ func (c *Cluster) updateSlots() (err error) {
 
 	slotsArray := getSlots(pool)
 	fmt.Println("slots:", slotsArray)
+	for _, slots := range slotsArray {
+		for _, addr := range slots.addrs {
+			pool, ok := c.pools[addr]
+			if !ok {
+				pool = NewPool(addr, numConn, numChan)
+				c.pools[addr] = pool
+			}
+
+		}
+	}
 
 	return
 }
@@ -170,7 +190,7 @@ func (c *Cluster) checkCluster() {
 
 func NewCluster(addrs []string) (cluster *Cluster, err error) {
 	cluster = &Cluster{
-		addrs:      addrs,
+		addrs: addrs,
 	}
 
 	err = cluster.connect()
