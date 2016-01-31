@@ -20,17 +20,13 @@ const (
 	numChan = 20
 )
 
-type mapping [numSlots]*CPool
-
-type CPool struct {
-	*Pool
-}
+type mapping [numSlots][]*Pool
 
 type Cluster struct {
 	mutex    sync.RWMutex
 	addrs    []string
 	slotsMap mapping
-	pools    [string]*CPool
+	pools    map[string]*Pool
 	info     *ClusterInfo
 }
 
@@ -71,6 +67,7 @@ func (c *Cluster) updateSlots() (err error) {
 		}
 	}()
 
+	//TODO: mutex
 	var pool *Pool
 	pool, err = c.getPool()
 	if err != nil {
@@ -86,17 +83,24 @@ func (c *Cluster) updateSlots() (err error) {
 	c.info = info
 
 	slotsArray := getSlots(pool)
-	fmt.Println("slots:", slotsArray)
 	for _, slots := range slotsArray {
+
+		var pools []*Pool
 		for _, addr := range slots.addrs {
 			pool, ok := c.pools[addr]
 			if !ok {
 				pool = NewPool(addr, numConn, numChan)
 				c.pools[addr] = pool
 			}
+			pools = append(pools, pool)
+		}
 
+		for i := slots.begin; i <= slots.end; i++ {
+			c.slotsMap[i] = pools
 		}
 	}
+	fmt.Println("pools", c.pools)
+	//fmt.Println("slotsmap", c.slotsMap)
 
 	return
 }
@@ -191,6 +195,7 @@ func (c *Cluster) checkCluster() {
 func NewCluster(addrs []string) (cluster *Cluster, err error) {
 	cluster = &Cluster{
 		addrs: addrs,
+		pools: make(map[string]*Pool),
 	}
 
 	err = cluster.connect()
