@@ -12,6 +12,7 @@ import (
 var (
 	ErrClusterNoService = errors.New("can't connect to any server of cluster")
 	ErrSlotsInfo        = errors.New("can't get infomation of slots")
+	ErrNoSlot           = errors.New("can't find slot")
 )
 
 const (
@@ -49,7 +50,21 @@ type ClusterInfo struct {
 }
 
 func (c *Cluster) Exec(cmd string, args ...interface{}) (reply *Reply, err error) {
+	key := fmt.Sprint(args[0])
+	pools, err := c.getPools(key)
+	if err != nil {
+		return
+	}
 
+	return pools[0].Exec(cmd, args...)
+}
+
+func (c *Cluster) getPools(key string) (pools []*Pool, err error) {
+	v := CRC16([]byte(key)) % numSlots
+	pools = c.slotsMap[v]
+	if len(pools) == 0 {
+		err = ErrNoSlot
+	}
 	return
 }
 
@@ -67,22 +82,25 @@ func (c *Cluster) updateSlots() (err error) {
 		}
 	}()
 
-	//TODO: mutex
 	var pool *Pool
-	pool, err = c.getPool()
+	pool, err = c.getPoolsInfo()
 	if err != nil {
 		return
 	}
 
-	info := getInfo(pool)
-	fmt.Println(info)
+	info := getClusterInfo(pool)
+
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
 	if c.info != nil && c.info.currentEpoch >= info.currentEpoch {
 		return
 	}
 
 	c.info = info
 
-	slotsArray := getSlots(pool)
+	slotsArray := getSlotsInfo(pool)
+	c.slotsMap = mapping{}
 	for _, slots := range slotsArray {
 
 		var pools []*Pool
@@ -105,7 +123,7 @@ func (c *Cluster) updateSlots() (err error) {
 	return
 }
 
-func (c *Cluster) getPool() (pool *Pool, err error) {
+func (c *Cluster) getPoolsInfo() (pool *Pool, err error) {
 	for _, addr := range c.addrs {
 		pool = NewPool(addr, 1, 1)
 		if pool.ConnsFail() > 0 {
@@ -120,7 +138,7 @@ func (c *Cluster) getPool() (pool *Pool, err error) {
 	return pool, err
 }
 
-func getSlots(pool *Pool) (slotsArray []*ClusterSlots) {
+func getSlotsInfo(pool *Pool) (slotsArray []*ClusterSlots) {
 	r, err := pool.Exec("CLUSTER", "slots")
 	checkError(err)
 
@@ -148,7 +166,7 @@ func getSlots(pool *Pool) (slotsArray []*ClusterSlots) {
 	return
 }
 
-func getInfo(pool *Pool) (info *ClusterInfo) {
+func getClusterInfo(pool *Pool) (info *ClusterInfo) {
 	r, err := pool.Exec("CLUSTER", "info")
 	checkError(err)
 
@@ -183,7 +201,7 @@ func getInfo(pool *Pool) (info *ClusterInfo) {
 	return
 }
 
-func getNodes(pool *Pool) {
+func getClusterNodes(pool *Pool) {
 	r, err := pool.Exec("CLUSTER", "nodes")
 	fmt.Println(r, err)
 }
