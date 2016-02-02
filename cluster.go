@@ -59,6 +59,17 @@ func (c *Cluster) Exec(cmd string, args ...interface{}) (reply *Reply, err error
 	return pools[0].Exec(cmd, args...)
 }
 
+//不使用hash
+func (c *Cluster) ExecN(cmd string, args ...interface{}) (reply *Reply, err error) {
+	key := fmt.Sprint(args[0])
+	pools, err := c.getPools(key)
+	if err != nil {
+		return
+	}
+
+	return pools[0].Exec(cmd, args...)
+}
+
 func (c *Cluster) getPools(key string) (pools []*Pool, err error) {
 	v := CRC16([]byte(key)) % numSlots
 	pools = c.slotsMap[v]
