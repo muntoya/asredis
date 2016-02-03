@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"fmt"
 	"strconv"
+	"sync"
 )
 
 func TestPool(t *testing.T) {
@@ -22,4 +23,24 @@ func TestPool(t *testing.T) {
 		assert.Equal(t, reply.Value, strconv.Itoa(i))
 		assert.Equal(t, err, nil)
 	}
+}
+
+
+func BenchmarkSet(b *testing.B) {
+	pool := NewPool("127.0.0.1:6379", 100, 500)
+
+	routineNum := 50
+	times := 10000
+	var w sync.WaitGroup
+	w.Add(routineNum)
+	for i := 0; i < routineNum; i++ {
+		go func() {
+			key := fmt.Sprintf("int%d", i)
+			for t := 0; t < times; t++ {
+				pool.Exec("set", key, i)
+			}
+			w.Done()
+		}()
+	}
+	w.Wait()
 }
