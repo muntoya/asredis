@@ -27,20 +27,22 @@ func TestPool(t *testing.T) {
 
 
 func BenchmarkSet(b *testing.B) {
-	pool := NewPool("127.0.0.1:6379", 100, 500)
+	pool := NewPool("127.0.0.1:6379", 10, 5000)
 
-	routineNum := 50
+	routineNum := 100
 	times := 10000
 	var w sync.WaitGroup
 	w.Add(routineNum)
 	for i := 0; i < routineNum; i++ {
-		go func() {
-			key := fmt.Sprintf("int%d", i)
+		go func(n int) {
+			b.Logf("key %v", key)
 			for t := 0; t < times; t++ {
-				pool.Exec("set", key, i)
+				pool.Exec("set", key, n)
 			}
 			w.Done()
-		}()
+		}(i)
 	}
 	w.Wait()
+
+	b.Logf("get %d", routineNum * times)
 }
