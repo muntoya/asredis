@@ -27,7 +27,8 @@ func TestPool(t *testing.T) {
 
 
 func BenchmarkSet(b *testing.B) {
-	pool := NewPool("127.0.0.1:6379", 5, 5000)
+	//TODO: channel设置过大后进程会完全锁住
+	pool := NewPool("127.0.0.1:6379", 2, 100)
 
 	routineNum := 200
 	times := 10000
