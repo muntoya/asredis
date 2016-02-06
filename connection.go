@@ -260,7 +260,8 @@ func NewConnection(addr string) (client *Connection) {
 		addr:        addr,
 		stop:        false,
 		connected:   false,
-		reqsPending: make(chan *Request, 100),
+		//FIXME: 测试chan的个数
+		reqsPending: make(chan *Request, 200),
 		ctrlChan:    make(chan ctrlType, 10),
 		pingTick:    time.Tick(intervalPing),
 		lastConnect: time.Now(),
