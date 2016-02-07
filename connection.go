@@ -9,6 +9,7 @@ import (
 	"errors"
 	"runtime/debug"
 	"fmt"
+	"container/list"
 )
 
 var (
@@ -21,7 +22,6 @@ const (
 	connectTimeout    time.Duration = time.Second * 1
 	intervalReconnect time.Duration = time.Second * 1
 	intervalPing      time.Duration = time.Second * 1
-	chanCount		int = 50
 )
 
 type Reply struct {
@@ -58,6 +58,7 @@ const (
 
 type Connection struct {
 	net.Conn
+	plLengh	int
 	readBuffer  *bufio.Reader
 	writeBuffer *bufio.Writer
 	addr        string
@@ -66,8 +67,8 @@ type Connection struct {
 	conMutex sync.Mutex
 	reqMutex sync.Mutex
 
-	//等待接收回复的请求
-	reqsPending chan *Request
+	//等待接收回复的请求*Request
+	reqsPending *list.List
 
 	ctrlChan  chan ctrlType
 	connected bool
@@ -164,7 +165,7 @@ func (c *Connection) sendRequest(req *Request, onlySend bool) {
 	c.send(req)
 
 	if !onlySend {
-		c.reqsPending <- req
+		c.reqsPending.PushBack(req)
 	}
 }
 
@@ -196,12 +197,11 @@ func (c *Connection) recover(err error) {
 
 //清空等待的请求
 func (c *Connection) clear(err error) {
-	close(c.reqsPending)
-	for req := range c.reqsPending {
-		req.err = err
+	for e := c.reqsPending.Front(); e != nil; e = e.Next() {
+		req := e.Value.(*Request)
 		req.done()
 	}
-	c.reqsPending = make(chan *Request, chanCount)
+	c.reqsPending.Init()
 }
 
 func (c *Connection) control(ctrl ctrlType) {
@@ -256,13 +256,13 @@ func (c *Connection) read(req *Request) {
 	req.reply = readReply(c.readBuffer)
 }
 
-func NewConnection(addr string) (client *Connection) {
+func NewConnection(addr string, plLengh int) (client *Connection) {
 	client = &Connection{
 		addr:        addr,
 		stop:        false,
 		connected:   false,
-		//FIXME: 测试chan的个数
-		reqsPending: make(chan *Request, chanCount),
+		plLengh:	plLengh,
+		reqsPending: list.New(),
 		ctrlChan:    make(chan ctrlType, 10),
 		pingTick:    time.Tick(intervalPing),
 		lastConnect: time.Now(),
