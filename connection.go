@@ -2,19 +2,19 @@ package asredis
 
 import (
 	"bufio"
+	"container/list"
+	"errors"
+	"fmt"
 	"log"
 	"net"
+	"runtime/debug"
 	"sync"
 	"time"
-	"errors"
-	"runtime/debug"
-	"fmt"
-	"container/list"
 )
 
 var (
-	ErrNotConnected = errors.New("redis: not connected")
-	ErrNotRunning = errors.New("redis: shutdown and can't use any more")
+	ErrNotConnected       = errors.New("redis: not connected")
+	ErrNotRunning         = errors.New("redis: shutdown and can't use any more")
 	ErrUnexpectedCtrlType = errors.New("redis: can't process control command")
 )
 
@@ -58,17 +58,18 @@ const (
 
 type Connection struct {
 	net.Conn
-	plLengh	int
+	plLengh     int
+	timeout     time.Duration
 	readBuffer  *bufio.Reader
 	writeBuffer *bufio.Writer
 	addr        string
 	stop        bool
 
 	conMutex sync.Mutex
-	reqMutex sync.Mutex
 
 	//等待接收回复的请求*Request
 	reqsPending *list.List
+	sendTimer	time.Timer
 
 	ctrlChan  chan ctrlType
 	connected bool
@@ -125,8 +126,19 @@ func (c *Connection) sendShutdownCtrl() {
 	c.ctrlChan <- ctrlShutdown
 }
 
-func (c *Connection) send(req *Request) {
-	writeReqToBuf(c.writeBuffer, req)
+func (c *Connection) handleRequetList(f func(*Request)) {
+	for e := c.reqsPending.Front(); e != nil; e = e.Next() {
+		req := e.Value.(*Request)
+		f(req)
+	}
+}
+
+//判断是否需要发送,队列长度达到限制或者超时才会发送
+func (c *Connection) send() {
+
+	c.handleRequetList(func(r *Request) {
+		writeReqToBuf(c.writeBuffer, r)
+	})
 }
 
 func (c *Connection) asyncCall(done chan *Request, cmd string, args ...interface{}) *Request {
@@ -140,7 +152,6 @@ func (c *Connection) call(done chan *Request, cmd string, args ...interface{}) (
 	return req.GetReply()
 }
 
-var ii int32 = 0
 func (c *Connection) sendRequest(req *Request, onlySend bool) {
 	c.conMutex.Lock()
 	defer func() {
@@ -162,11 +173,11 @@ func (c *Connection) sendRequest(req *Request, onlySend bool) {
 		panic(ErrNotConnected)
 	}
 
-	c.send(req)
-
 	if !onlySend {
 		c.reqsPending.PushBack(req)
 	}
+
+	c.send()
 }
 
 func (c *Connection) pubsubWait(done chan *Request) (*Reply, error) {
@@ -197,10 +208,10 @@ func (c *Connection) recover(err error) {
 
 //清空等待的请求
 func (c *Connection) clear(err error) {
-	for e := c.reqsPending.Front(); e != nil; e = e.Next() {
-		req := e.Value.(*Request)
-		req.done()
-	}
+	c.handleRequetList(func(r *Request) {
+		r.done()
+	})
+
 	c.reqsPending.Init()
 }
 
@@ -256,12 +267,13 @@ func (c *Connection) read(req *Request) {
 	req.reply = readReply(c.readBuffer)
 }
 
-func NewConnection(addr string, plLengh int) (client *Connection) {
+func NewConnection(addr string, plLengh int, timeout time.Duration) (client *Connection) {
 	client = &Connection{
 		addr:        addr,
 		stop:        false,
 		connected:   false,
-		plLengh:	plLengh,
+		plLengh:     plLengh,
+		timeout:	timeout,
 		reqsPending: list.New(),
 		ctrlChan:    make(chan ctrlType, 10),
 		pingTick:    time.Tick(intervalPing),
