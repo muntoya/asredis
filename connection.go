@@ -8,7 +8,6 @@ import (
 	"time"
 	"errors"
 	"runtime/debug"
-	//"fmt"
 	"fmt"
 )
 
@@ -22,6 +21,7 @@ const (
 	connectTimeout    time.Duration = time.Second * 1
 	intervalReconnect time.Duration = time.Second * 1
 	intervalPing      time.Duration = time.Second * 1
+	chanCount		int = 50
 )
 
 type Reply struct {
@@ -139,8 +139,8 @@ func (c *Connection) call(done chan *Request, cmd string, args ...interface{}) (
 	return req.GetReply()
 }
 
+var ii int32 = 0
 func (c *Connection) sendRequest(req *Request, onlySend bool) {
-
 	c.conMutex.Lock()
 	defer func() {
 		if err := recover(); err != nil {
@@ -162,6 +162,7 @@ func (c *Connection) sendRequest(req *Request, onlySend bool) {
 	}
 
 	c.send(req)
+
 	if !onlySend {
 		c.reqsPending <- req
 	}
@@ -200,7 +201,7 @@ func (c *Connection) clear(err error) {
 		req.err = err
 		req.done()
 	}
-	c.reqsPending = make(chan *Request, 100)
+	c.reqsPending = make(chan *Request, chanCount)
 }
 
 func (c *Connection) control(ctrl ctrlType) {
@@ -261,7 +262,7 @@ func NewConnection(addr string) (client *Connection) {
 		stop:        false,
 		connected:   false,
 		//FIXME: 测试chan的个数
-		reqsPending: make(chan *Request, 200),
+		reqsPending: make(chan *Request, chanCount),
 		ctrlChan:    make(chan ctrlType, 10),
 		pingTick:    time.Tick(intervalPing),
 		lastConnect: time.Now(),

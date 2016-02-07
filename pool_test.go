@@ -28,18 +28,20 @@ func TestPool(t *testing.T) {
 
 func BenchmarkSet(b *testing.B) {
 	//TODO: channel设置过大后进程会完全锁住
-	pool := NewPool("127.0.0.1:6379", 2, 100)
+	pool := NewPool("127.0.0.1:6379", 1, 500)
 
-	routineNum := 200
+	routineNum := 100
 	times := 10000
 	var w sync.WaitGroup
 	w.Add(routineNum)
 	for i := 0; i < routineNum; i++ {
 		go func(n int) {
 			key := fmt.Sprintf("int%d", i)
-			b.Logf("key %v", key)
 			for t := 0; t < times; t++ {
-				pool.Exec("set", key, n)
+				_, e := pool.Exec("set", key, n)
+				if e != nil {
+					panic(e)
+				}
 			}
 			w.Done()
 		}(i)
