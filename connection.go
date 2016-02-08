@@ -22,32 +22,9 @@ const (
 	connectTimeout    time.Duration = time.Second * 1
 	intervalReconnect time.Duration = time.Second * 1
 	intervalPing      time.Duration = time.Second * 1
+	waitingChanLen    int           = 20
+	ctrlChanLen       int           = 10
 )
-
-type Reply struct {
-	Type  ResponseType
-	Value interface{}
-	Array []interface{}
-}
-
-type Request struct {
-	cmd   string
-	args  []interface{}
-	err   error
-	reply *Reply
-	Done  chan *Request
-}
-
-func (r *Request) done() {
-	if r.Done != nil {
-		r.Done <- r
-	}
-}
-
-func (r *Request) GetReply() (*Reply, error) {
-	<-r.Done
-	return r.reply, r.err
-}
 
 type ctrlType byte
 
@@ -57,19 +34,24 @@ const (
 )
 
 type Connection struct {
+	conMutex sync.Mutex
+
 	net.Conn
-	plLengh     int
 	timeout     time.Duration
 	readBuffer  *bufio.Reader
 	writeBuffer *bufio.Writer
 	addr        string
 	stop        bool
 
-	conMutex sync.Mutex
+	//等待送入发送线程的请求
+	waitingChan chan *Request
 
-	//等待接收回复的请求*Request
+	//等待发送的请求
+	plLengh     int
 	reqsPending *list.List
-	sendTimer	time.Timer
+
+	//下次发送的时间
+	sendTimer time.Timer
 
 	ctrlChan  chan ctrlType
 	connected bool
@@ -107,7 +89,7 @@ func (c *Connection) close() {
 }
 
 func (c *Connection) ping() {
-	c.asyncCall(nil, "PING")
+	c.Call(nil, "PING")
 }
 
 func (c *Connection) isShutDown() bool {
@@ -133,26 +115,13 @@ func (c *Connection) handleRequetList(f func(*Request)) {
 	}
 }
 
-//判断是否需要发送,队列长度达到限制或者超时才会发送
-func (c *Connection) send() {
-
-	c.handleRequetList(func(r *Request) {
-		writeReqToBuf(c.writeBuffer, r)
-	})
-}
-
-func (c *Connection) asyncCall(done chan *Request, cmd string, args ...interface{}) *Request {
-	req := newRequst(done, cmd, args...)
-	c.sendRequest(req, false)
-	return req
-}
-
-func (c *Connection) call(done chan *Request, cmd string, args ...interface{}) (*Reply, error) {
-	req := c.asyncCall(done, cmd, args...)
+func (c *Connection) Call(done chan *Request, cmd string, args ...interface{}) (*Reply, error) {
+	req := newRequst(NORMAL, done, cmd, args...)
+	c.waitingChan <- req
 	return req.GetReply()
 }
 
-func (c *Connection) sendRequest(req *Request, onlySend bool) {
+func (c *Connection) sendRequest(req *Request) {
 	c.conMutex.Lock()
 	defer func() {
 		if err := recover(); err != nil {
@@ -172,23 +141,17 @@ func (c *Connection) sendRequest(req *Request, onlySend bool) {
 	if !c.isConnected() {
 		panic(ErrNotConnected)
 	}
-
-	if !onlySend {
-		c.reqsPending.PushBack(req)
-	}
-
-	c.send()
 }
 
 func (c *Connection) pubsubWait(done chan *Request) (*Reply, error) {
-	req := newRequst(done, "")
-	c.reqsPending <- req
+	req := newRequst(ONLY_WAIT, done, "")
+	c.waitingChan <- req
 	return req.GetReply()
 }
 
 func (c *Connection) pubsubSend(cmd string, args ...interface{}) error {
-	req := newRequst(nil, cmd, args...)
-	c.sendRequest(req, true)
+	req := newRequst(ONLY_SEND, nil, cmd, args...)
+	c.waitingChan <- req
 	return req.err
 }
 
@@ -273,9 +236,10 @@ func NewConnection(addr string, plLengh int, timeout time.Duration) (client *Con
 		stop:        false,
 		connected:   false,
 		plLengh:     plLengh,
-		timeout:	timeout,
+		timeout:     timeout,
 		reqsPending: list.New(),
-		ctrlChan:    make(chan ctrlType, 10),
+		waitingChan: make(chan *Request, waitingChanLen),
+		ctrlChan:    make(chan ctrlType, ctrlChanLen),
 		pingTick:    time.Tick(intervalPing),
 		lastConnect: time.Now(),
 	}
@@ -287,8 +251,9 @@ func NewConnection(addr string, plLengh int, timeout time.Duration) (client *Con
 	return
 }
 
-func newRequst(done chan *Request, cmd string, args ...interface{}) *Request {
+func newRequst(reqtype requestType, done chan *Request, cmd string, args ...interface{}) *Request {
 	req := new(Request)
+	req.reqtype = reqtype
 
 	if done != nil {
 		if cap(done) == 0 {

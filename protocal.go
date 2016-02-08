@@ -37,6 +37,46 @@ const (
 	ARRAY
 )
 
+
+type Reply struct {
+	Type  ResponseType
+	Value interface{}
+	Array []interface{}
+}
+
+type requestType byte
+
+const (
+	NORMAL requestType = iota
+	ONLY_SEND
+	ONLY_WAIT
+)
+
+type Request struct {
+	cmd    string
+	args   []string
+	err    error
+	reply  *Reply
+	Done   chan *Request
+
+	//只需要等待回复
+	reqtype bool
+
+
+}
+
+func (r *Request) done() {
+	if r.Done != nil {
+		r.Done <- r
+	}
+}
+
+func (r *Request) GetReply() (*Reply, error) {
+	<-r.Done
+	return r.reply, r.err
+}
+
+
 func readToCRLF(io *bufio.Reader) []byte {
 	buf, err := io.ReadBytes(cr_byte)
 	checkError(err)
