@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 var (
@@ -17,15 +18,20 @@ var (
 
 const (
 	numSlots = 16384
-	numConn = 10
-	numChan = 20
+	numConn  = 10
+	numChan  = 20
 )
 
 type mapping [numSlots][]*Pool
 
 type Cluster struct {
-	mutex    sync.RWMutex
-	addrs    []string
+	mutex sync.RWMutex
+	addrs []string
+
+	//pipelining length
+	ppLen       int
+	sendTimeout time.Duration
+
 	slotsMap mapping
 	pools    map[string]*Pool
 	info     *ClusterInfo
@@ -118,7 +124,7 @@ func (c *Cluster) updateSlots() (err error) {
 		for _, addr := range slots.addrs {
 			pool, ok := c.pools[addr]
 			if !ok {
-				pool = NewPool(addr, numConn, numChan)
+				pool = NewPool(addr, numConn, numChan, c.ppLen, c.sendTimeout)
 				c.pools[addr] = pool
 			}
 			pools = append(pools, pool)
@@ -136,7 +142,7 @@ func (c *Cluster) updateSlots() (err error) {
 
 func (c *Cluster) getPoolsInfo() (pool *Pool, err error) {
 	for _, addr := range c.addrs {
-		pool = NewPool(addr, 1, 1)
+		pool = NewPool(addr, 1, 1, c.ppLen, c.sendTimeout)
 		if pool.ConnsFail() > 0 {
 			continue
 		}
@@ -221,9 +227,11 @@ func (c *Cluster) checkCluster() {
 
 }
 
-func NewCluster(addrs []string) (cluster *Cluster, err error) {
+func NewCluster(addrs []string, ppLen int, sendTimeout time.Duration) (cluster *Cluster, err error) {
 	cluster = &Cluster{
 		addrs: addrs,
+		ppLen: ppLen,
+		sendTimeout: sendTimeout,
 		pools: make(map[string]*Pool),
 	}
 

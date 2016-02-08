@@ -11,7 +11,7 @@ func TestPubsub(t *testing.T) {
 	clientSubpub := NewPubsubClient("127.0.0.1:6379")
 	clientSubpub.Sub("c1", "c2")
 
-	client := NewConnection("127.0.0.1:6379")
+	client := NewConnection("127.0.0.1:6379", defaultPPLen, defaultSendTimeout)
 	c := make(chan *Request, 1)
 	_, err := client.call(c, "PUBLISH", "c1", "haha")
 	assert.Exactly(t, nil, err)

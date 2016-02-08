@@ -18,11 +18,13 @@ var (
 )
 
 const (
-	connectTimeout    time.Duration = time.Second * 1
-	intervalReconnect time.Duration = time.Second * 1
-	intervalPing      time.Duration = time.Second * 1
-	waitingChanLen    int           = 20
-	ctrlChanLen       int           = 10
+	connectTimeout     time.Duration = time.Second * 1
+	intervalReconnect  time.Duration = time.Second * 1
+	intervalPing       time.Duration = time.Second * 1
+	waitingChanLen     int           = 20
+	ctrlChanLen        int           = 10
+	defaultPPLen       int           = 10
+	defaultSendTimeout time.Duration = time.Millisecond
 )
 
 type ctrlType byte
@@ -44,7 +46,7 @@ type Connection struct {
 	waitingChan chan *Request
 
 	//等待发送的请求
-	plLen       int
+	ppLen       int
 	reqsPending *list.List
 
 	//list中第一个请求插入时间
@@ -139,7 +141,7 @@ func (c *Connection) sendRequest(req *Request) {
 	}
 
 	timeout := time.Now().Sub(c.sendTime)
-	if c.reqsPending.Len() < c.plLen || timeout < c.timeout {
+	if c.reqsPending.Len() < c.ppLen || timeout < c.timeout {
 		return
 	}
 
@@ -231,7 +233,7 @@ func NewConnection(addr string, plLengh int, timeout time.Duration) (client *Con
 		addr:        addr,
 		stop:        false,
 		connected:   false,
-		plLen:     plLengh,
+		ppLen:       plLengh,
 		timeout:     timeout,
 		reqsPending: list.New(),
 		waitingChan: make(chan *Request, waitingChanLen),

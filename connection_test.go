@@ -10,7 +10,7 @@ import (
 
 func TestConnection(t *testing.T) {
 	t.Skip("skip connection test")
-	client:= NewConnection("127.0.0.1:6379")
+	client:= NewConnection("127.0.0.1:6379", defaultPPLen, defaultSendTimeout)
 	defer client.close()
 
 	c := make(chan *Request, 1)
@@ -40,7 +40,7 @@ func TestConnection(t *testing.T) {
 
 func TestError(t *testing.T) {
 	t.Skip("skip connnection loop")
-	client := NewConnection("127.0.0.1:6379")
+	client := NewConnection("127.0.0.1:6379", defaultPPLen, defaultSendTimeout)
 
 	c := make(chan *Request, 1)
 

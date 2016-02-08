@@ -3,6 +3,7 @@ package asredis
 import (
 	//"fmt"
 	"strings"
+	"time"
 )
 
 //master/slave pool 用来存储主从服务器的全部连接,自动与所有集群中的服务器连接
@@ -56,7 +57,7 @@ func (p *MSPool) checkMaster() {
 		p.master = nil
 	}
 
-	p.master = NewPool(address, 10, 10)
+	p.master = NewPool(address, 10, 10, 10, time.Millisecond)
 }
 
 func (p *MSPool) checkSlaves() {

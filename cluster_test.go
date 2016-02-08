@@ -4,13 +4,14 @@ import (
 	"testing"
 	"fmt"
 	"strconv"
+	"time"
 	"github.com/stretchr/testify/assert"
 )
 
 
 func TestCluster(t *testing.T) {
 	t.Skip("cluster")
-	cluster, _ := NewCluster([]string{"127.0.0.1:7000"})
+	cluster, _ := NewCluster([]string{"127.0.0.1:7000"}, 20, time.Millisecond)
 
 	for i := 0; i < 100; i++ {
 		_, err := cluster.Exec("set", fmt.Sprintf("int%d", i), i)
