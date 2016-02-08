@@ -8,7 +8,6 @@ import (
 	"log"
 	"net"
 	"runtime/debug"
-	"sync"
 	"time"
 )
 
@@ -34,8 +33,6 @@ const (
 )
 
 type Connection struct {
-	conMutex sync.Mutex
-
 	net.Conn
 	timeout     time.Duration
 	readBuffer  *bufio.Reader
@@ -47,16 +44,16 @@ type Connection struct {
 	waitingChan chan *Request
 
 	//等待发送的请求
-	plLengh     int
+	plLen       int
 	reqsPending *list.List
 
-	//下次发送的时间
-	sendTimer time.Timer
+	//list中第一个请求插入时间
+	sendTime    time.Time
 
-	ctrlChan  chan ctrlType
-	connected bool
-	err       error
-	pingTick  <-chan time.Time
+	ctrlChan    chan ctrlType
+	connected   bool
+	err         error
+	pingTick    <-chan time.Time
 
 	lastConnect time.Time
 }
@@ -80,16 +77,13 @@ func (c *Connection) connect() {
 }
 
 func (c *Connection) close() {
-	c.conMutex.Lock()
-	defer c.conMutex.Unlock()
-
 	c.sendShutdownCtrl()
 	c.stop = true
 	c.connected = false
 }
 
 func (c *Connection) ping() {
-	c.Call(nil, "PING")
+	c.call(nil, "PING")
 }
 
 func (c *Connection) isShutDown() bool {
@@ -115,24 +109,26 @@ func (c *Connection) handleRequetList(f func(*Request)) {
 	}
 }
 
-func (c *Connection) Call(done chan *Request, cmd string, args ...interface{}) (*Reply, error) {
+func (c *Connection) call(done chan *Request, cmd string, args ...interface{}) (*Reply, error) {
 	req := newRequst(NORMAL, done, cmd, args...)
 	c.waitingChan <- req
 	return req.GetReply()
 }
 
 func (c *Connection) sendRequest(req *Request) {
-	c.conMutex.Lock()
 	defer func() {
 		if err := recover(); err != nil {
-			req.err = err.(error)
-			req.done()
-			c.connected = false
-			c.sendReconnectCtrl()
+			e := err.(error)
+			req.err = e
+			c.recover(e)
 			fmt.Println(string(debug.Stack()))
 		}
-		c.conMutex.Unlock()
 	}()
+
+	if c.reqsPending.Len() == 0 {
+		c.sendTime = time.Now()
+	}
+	c.reqsPending.PushBack(req)
 
 	if c.isShutDown() {
 		panic(ErrNotRunning)
@@ -141,6 +137,14 @@ func (c *Connection) sendRequest(req *Request) {
 	if !c.isConnected() {
 		panic(ErrNotConnected)
 	}
+
+	timeout := time.Now().Sub(c.sendTime)
+	if c.reqsPending.Len() < c.plLen || timeout < c.timeout {
+		return
+	}
+
+	c.writeAllRequst()
+	c.readAllReply()
 }
 
 func (c *Connection) pubsubWait(done chan *Request) (*Reply, error) {
@@ -156,9 +160,6 @@ func (c *Connection) pubsubSend(cmd string, args ...interface{}) error {
 }
 
 func (c *Connection) recover(err error) {
-	c.conMutex.Lock()
-	defer c.conMutex.Unlock()
-
 	//一定时间段内只尝试重连一次
 	if c.lastConnect.Add(intervalReconnect).After(time.Now()) {
 		return
@@ -203,31 +204,26 @@ func (c *Connection) process() {
 		select {
 		case ctrl := <-c.ctrlChan:
 			c.control(ctrl)
-		case req := <-c.reqsPending:
-			c.read(req)
+		case req := <-c.waitingChan:
+			c.sendRequest(req)
 		case <-c.pingTick:
 			c.ping()
 		}
 	}
 }
 
-func (c *Connection) read(req *Request) {
-	if c.isShutDown() {
-		return
-	}
+func (c *Connection) writeAllRequst() {
+	c.handleRequetList(func(req *Request) {
+		writeReqToBuf(c.writeBuffer, req)
+	})
+}
 
-	defer func() {
-		if err := recover(); err != nil {
-			e := err.(error)
-			req.err = e
-			c.recover(e)
-			fmt.Println(string(debug.Stack()))
-		}
-
+func (c *Connection) readAllReply() {
+	c.handleRequetList(func(req *Request) {
+		reply := readReply(c.readBuffer)
+		req.reply = reply
 		req.done()
-	}()
-
-	req.reply = readReply(c.readBuffer)
+	})
 }
 
 func NewConnection(addr string, plLengh int, timeout time.Duration) (client *Connection) {
@@ -235,7 +231,7 @@ func NewConnection(addr string, plLengh int, timeout time.Duration) (client *Con
 		addr:        addr,
 		stop:        false,
 		connected:   false,
-		plLengh:     plLengh,
+		plLen:     plLengh,
 		timeout:     timeout,
 		reqsPending: list.New(),
 		waitingChan: make(chan *Request, waitingChanLen),

@@ -15,6 +15,8 @@ const (
 	getReplyTimeout time.Duration = time.Second * 1
 	commandTimeout  time.Duration = time.Millisecond * 100
 	messageChanLen  int           = 100
+	plLen = 10
+	sendTimeout = time.Millisecond
 )
 
 type SubMsg struct {
@@ -33,7 +35,7 @@ type PubsubClient struct {
 
 func NewPubsubClient(addr string) (pubsubClient *PubsubClient) {
 	pubsubClient = &PubsubClient{
-		redisClient: NewConnection(addr),
+		redisClient: NewConnection(addr, plLen, sendTimeout),
 		replyChan:   make(chan *Request, 1),
 		messageChan: make(chan *SubMsg, messageChanLen),
 		subChan:     make(chan error),

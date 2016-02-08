@@ -4,6 +4,7 @@ import (
 //	"time"
 	"sync/atomic"
 	//"fmt"
+	"time"
 )
 
 // 用来保存连接至单个redis进程的多个连接
@@ -65,11 +66,11 @@ func (p *Pool) Eval(l *LuaEval, args ...interface{}) (reply *Reply, err error) {
 	return
 }
 
-func NewPool(addr string, nConn, nChan int32) *Pool {
+func NewPool(addr string, nConn, nChan int32, plLen int, sendTimeout time.Duration) *Pool {
 	clients := make([]*Connection, nConn)
 	var i int32 = 0
 	for ; i < nConn; i++ {
-		clients[i] = NewConnection(addr)
+		clients[i] = NewConnection(addr, plLen, sendTimeout)
 	}
 
 	pool := &Pool{

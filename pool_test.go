@@ -8,11 +8,12 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
+	"time"
 )
 
 func TestPool(t *testing.T) {
 	t.Skip("skip pool")
-	pool := NewPool("127.0.0.1:6379", 5, 10)
+	pool := NewPool("127.0.0.1:6379", 5, 10, 10, time.Millisecond)
 	for i := 0; i < 100; i++ {
 		_, err := pool.Exec("set", fmt.Sprintf("int%d", i), i)
 		assert.Equal(t, err, nil)
@@ -27,8 +28,7 @@ func TestPool(t *testing.T) {
 
 
 func BenchmarkSet(b *testing.B) {
-	//TODO: channel设置过大后进程会完全锁住
-	pool := NewPool("127.0.0.1:6379", 1, 500)
+	pool := NewPool("127.0.0.1:6379", 1, 500, 10, time.Millisecond)
 
 	routineNum := 100
 	times := 10000

@@ -2,13 +2,13 @@ package asredis
 
 import (
 	"bufio"
-	"strconv"
-	"fmt"
 	"errors"
+	"fmt"
+	"strconv"
 )
 
 var (
-	ErrExpectingLinefeed = errors.New("redis: expecting a linefeed byte")
+	ErrExpectingLinefeed   = errors.New("redis: expecting a linefeed byte")
 	ErrUnexpectedReplyType = errors.New("redis: can't parse reply")
 )
 
@@ -18,7 +18,7 @@ const (
 	space_byte      = byte(' ')
 	err_byte        = byte('-')
 	ok_byte         = byte('+')
-	array_byte 		= byte('*')
+	array_byte      = byte('*')
 	size_byte       = byte('$')
 	num_byte        = byte(':')
 	true_byte       = byte('1')
@@ -37,7 +37,6 @@ const (
 	ARRAY
 )
 
-
 type Reply struct {
 	Type  ResponseType
 	Value interface{}
@@ -53,16 +52,12 @@ const (
 )
 
 type Request struct {
-	cmd    string
-	args   []string
-	err    error
-	reply  *Reply
-	Done   chan *Request
-
-	//只需要等待回复
-	reqtype bool
-
-
+	cmd     string
+	args    []interface{}
+	err     error
+	reply   *Reply
+	Done    chan *Request
+	reqtype requestType
 }
 
 func (r *Request) done() {
@@ -75,7 +70,6 @@ func (r *Request) GetReply() (*Reply, error) {
 	<-r.Done
 	return r.reply, r.err
 }
-
 
 func readToCRLF(io *bufio.Reader) []byte {
 	buf, err := io.ReadBytes(cr_byte)
@@ -93,7 +87,7 @@ func readToCRLF(io *bufio.Reader) []byte {
 }
 
 //读取一个完整的回复数据
-func readReply(io *bufio.Reader)  (reply *Reply) {
+func readReply(io *bufio.Reader) (reply *Reply) {
 	if io == nil {
 		panic(ErrNotConnected)
 	}
@@ -101,7 +95,7 @@ func readReply(io *bufio.Reader)  (reply *Reply) {
 	b := readToCRLF(io)
 	reply = new(Reply)
 
-	switch  v := string(b[1:]); b[0] {
+	switch v := string(b[1:]); b[0] {
 	case ok_byte:
 		reply.Type = STRING
 		reply.Value = string(v)
@@ -132,7 +126,7 @@ func readReply(io *bufio.Reader)  (reply *Reply) {
 		reply.Value = string(s[0:l])
 
 	case array_byte:
-		len, err :=  strconv.Atoi(v)
+		len, err := strconv.Atoi(v)
 		checkError(err)
 
 		reply.Type = ARRAY
@@ -146,7 +140,7 @@ func readReply(io *bufio.Reader)  (reply *Reply) {
 }
 
 //递归读取数组数据
-func readArray(io *bufio.Reader, len int)  (array []interface{}) {
+func readArray(io *bufio.Reader, len int) (array []interface{}) {
 	array = make([]interface{}, len)
 	for i := 0; i < len; i++ {
 		s := readToCRLF(io)
@@ -159,7 +153,7 @@ func readArray(io *bufio.Reader, len int)  (array []interface{}) {
 			ele := readToCRLF(io)
 			array[i] = string(ele)
 		case array_byte:
-			l, err :=  strconv.Atoi(string(s[1:]))
+			l, err := strconv.Atoi(string(s[1:]))
 			checkError(err)
 			array[i] = readArray(io, l)
 
