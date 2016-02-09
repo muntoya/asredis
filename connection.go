@@ -21,9 +21,9 @@ const (
 	connectTimeout     time.Duration = time.Second * 1
 	intervalReconnect  time.Duration = time.Second * 1
 	intervalPing       time.Duration = time.Second * 1
-	waitingChanLen     int           = 20
+	waitingChanLen     int           = 100
 	ctrlChanLen        int           = 10
-	defaultPPLen       int           = 10
+	defaultPPLen       int           = 40
 	defaultSendTimeout time.Duration = time.Millisecond
 )
 
@@ -140,11 +140,9 @@ func (c *Connection) sendRequest(req *Request) {
 		panic(ErrNotConnected)
 	}
 
-	fmt.Println("send")
 	if c.reqsPending.Len() < c.ppLen {
 		return
 	}
-	fmt.Println("send2")
 
 	c.doPipelining()
 }
@@ -217,7 +215,6 @@ func (c *Connection) process() {
 }
 
 func (c *Connection) doPipelining() {
-	fmt.Println("pipelining")
 	c.writeAllRequst()
 	c.readAllReply()
 	c.reqsPending.Init()

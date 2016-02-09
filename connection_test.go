@@ -4,8 +4,9 @@ import (
 	"time"
 //	"runtime/debug"
 	"testing"
-	"github.com/stretchr/testify/assert"
 	"fmt"
+	"sync"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestConnection(t *testing.T) {
@@ -38,7 +39,32 @@ func TestConnection(t *testing.T) {
 	assert.Equal(t, reply.Array, l)
 }
 
-func TestError(t *testing.T) {
+func TestConnRoutine(t *testing.T) {
+	//t.Skip("skip connection routine")
+	conn:= NewConnection("127.0.0.1:6379", defaultPPLen, defaultSendTimeout)
+	defer conn.close()
+
+	routineNum := 100
+	times := 100
+	var w sync.WaitGroup
+	w.Add(routineNum)
+	for i := 0; i < routineNum; i++ {
+		go func(n int) {
+			c := make(chan *Request, 1)
+			key := fmt.Sprintf("int%d", i)
+			for t := 0; t < times; t++ {
+				_, e := conn.call(c, "set", key, n)
+				if e != nil {
+					panic(e)
+				}
+			}
+			w.Done()
+		}(i)
+	}
+	w.Wait()
+}
+
+func TestConnError(t *testing.T) {
 	t.Skip("skip connnection loop")
 	client := NewConnection("127.0.0.1:6379", defaultPPLen, defaultSendTimeout)
 
