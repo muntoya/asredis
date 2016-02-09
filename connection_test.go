@@ -9,7 +9,7 @@ import (
 )
 
 func TestConnection(t *testing.T) {
-	t.Skip("skip connection test")
+	//t.Skip("skip connection test")
 	client:= NewConnection("127.0.0.1:6379", defaultPPLen, defaultSendTimeout)
 	defer client.close()
 

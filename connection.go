@@ -49,8 +49,8 @@ type Connection struct {
 	ppLen       int
 	reqsPending *list.List
 
-	//list中第一个请求插入时间
-	sendTime    time.Time
+	//发送超时信号的channel
+	sendTime    <-chan time.Time
 
 	ctrlChan    chan ctrlType
 	connected   bool
@@ -128,7 +128,7 @@ func (c *Connection) sendRequest(req *Request) {
 	}()
 
 	if c.reqsPending.Len() == 0 {
-		c.sendTime = time.Now()
+		c.sendTime = time.After(c.timeout)
 	}
 	c.reqsPending.PushBack(req)
 
@@ -140,13 +140,13 @@ func (c *Connection) sendRequest(req *Request) {
 		panic(ErrNotConnected)
 	}
 
-	timeout := time.Now().Sub(c.sendTime)
-	if c.reqsPending.Len() < c.ppLen || timeout < c.timeout {
+	fmt.Println("send")
+	if c.reqsPending.Len() < c.ppLen {
 		return
 	}
+	fmt.Println("send2")
 
-	c.writeAllRequst()
-	c.readAllReply()
+	c.doPipelining()
 }
 
 func (c *Connection) pubsubWait(done chan *Request) (*Reply, error) {
@@ -206,12 +206,21 @@ func (c *Connection) process() {
 		select {
 		case ctrl := <-c.ctrlChan:
 			c.control(ctrl)
+		case <- c.sendTime:
+			c.doPipelining()
 		case req := <-c.waitingChan:
 			c.sendRequest(req)
 		case <-c.pingTick:
 			c.ping()
 		}
 	}
+}
+
+func (c *Connection) doPipelining() {
+	fmt.Println("pipelining")
+	c.writeAllRequst()
+	c.readAllReply()
+	c.reqsPending.Init()
 }
 
 func (c *Connection) writeAllRequst() {
