@@ -45,7 +45,7 @@ func TestConnRoutine(t *testing.T) {
 	defer conn.close()
 
 	routineNum := 100
-	times := 100
+	times := 10000
 	var w sync.WaitGroup
 	w.Add(routineNum)
 	for i := 0; i < routineNum; i++ {

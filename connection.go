@@ -224,6 +224,7 @@ func (c *Connection) writeAllRequst() {
 	c.handleRequetList(func(req *Request) {
 		writeReqToBuf(c.writeBuffer, req)
 	})
+	c.writeBuffer.Flush()
 }
 
 func (c *Connection) readAllReply() {

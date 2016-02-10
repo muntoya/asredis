@@ -188,8 +188,6 @@ func writeReqToBuf(buf *bufio.Writer, req *Request) {
 		buf.WriteString(v)
 		buf.Write(cr_lf)
 	}
-
-	buf.Flush()
 }
 
 func checkError(err error) {
