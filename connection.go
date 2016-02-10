@@ -71,8 +71,8 @@ func (c *Connection) connect() {
 		return
 	}
 
-	c.readBuffer = bufio.NewReader(c.Conn)
-	c.writeBuffer = bufio.NewWriter(c.Conn)
+	c.readBuffer = bufio.NewReaderSize(c.Conn, 1024 * 4)
+	c.writeBuffer = bufio.NewWriterSize(c.Conn, 1024 * 4)
 
 	c.connected = true
 	c.err = nil
@@ -238,8 +238,8 @@ func (c *Connection) readAllReply() {
 	})
 }
 
-func NewConnection(addr string, plLengh int, timeout time.Duration) (client *Connection) {
-	client = &Connection{
+func NewConnection(addr string, plLengh int, timeout time.Duration) (conn *Connection) {
+	conn = &Connection{
 		addr:        addr,
 		stop:        false,
 		connected:   false,
@@ -252,9 +252,9 @@ func NewConnection(addr string, plLengh int, timeout time.Duration) (client *Con
 		lastConnect: time.Now(),
 	}
 
-	client.connect()
+	conn.connect()
 
-	go client.process()
+	go conn.process()
 
 	return
 }

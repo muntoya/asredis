@@ -28,9 +28,9 @@ func TestPool(t *testing.T) {
 
 
 func BenchmarkSet(b *testing.B) {
-	pool := NewPool("127.0.0.1:6379", 1, 500, 10, time.Millisecond)
+	pool := NewPool("127.0.0.1:6379", 5, 500, 50, time.Millisecond)
 
-	routineNum := 100
+	routineNum := 200
 	times := 10000
 	var w sync.WaitGroup
 	w.Add(routineNum)

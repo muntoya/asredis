@@ -44,14 +44,14 @@ func TestConnRoutine(t *testing.T) {
 	conn:= NewConnection("127.0.0.1:6379", defaultPPLen, defaultSendTimeout)
 	defer conn.close()
 
-	routineNum := 100
+	routineNum := 50
 	times := 10000
 	var w sync.WaitGroup
 	w.Add(routineNum)
 	for i := 0; i < routineNum; i++ {
 		go func(n int) {
 			c := make(chan *Request, 1)
-			key := fmt.Sprintf("int%d", i)
+			key := fmt.Sprintf("int%d", n)
 			for t := 0; t < times; t++ {
 				_, e := conn.call(c, "set", key, n)
 				if e != nil {
