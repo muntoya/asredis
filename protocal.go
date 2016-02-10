@@ -9,7 +9,7 @@ import (
 
 var (
 	ErrExpectingLinefeed   = errors.New("redis: expecting a linefeed byte")
-	ErrUnexpectedReplyType = errors.New("redis: can't parse reply")
+	ErrUnexpectedReplyType = errors.New("redis: can't parse reply type")
 )
 
 const (

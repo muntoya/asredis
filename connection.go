@@ -85,7 +85,8 @@ func (c *Connection) close() {
 }
 
 func (c *Connection) ping() {
-	c.call(nil, "PING")
+	req := newRequst(NORMAL, nil, "PING")
+	c.waitingChan <- req
 }
 
 func (c *Connection) isShutDown() bool {
@@ -231,6 +232,8 @@ func (c *Connection) readAllReply() {
 	c.handleRequetList(func(req *Request) {
 		reply := readReply(c.readBuffer)
 		req.reply = reply
+	})
+	c.handleRequetList(func(req *Request) {
 		req.done()
 	})
 }
