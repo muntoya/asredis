@@ -52,7 +52,16 @@ type ConnectionSpec struct {
 
 func DefaultSpec() *ConnectionSpec {
 	return &ConnectionSpec{
-
+		defaultHost,
+		defaultPort,
+		defaultPassword,
+		defaultDB,
+		defaultTCPReadBufSize,
+		defaultTCPWriteBufSize,
+		defaultTCPReadTimeout,
+		defaultTCPWriteTimeout,
+		defaultIOReadBufSize,
+		defaultIOWriteBufSize,
 	}
 }
 
