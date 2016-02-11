@@ -25,7 +25,36 @@ const (
 	ctrlChanLen        int           = 10
 	defaultPPLen       int           = 40
 	defaultSendTimeout time.Duration = time.Millisecond
+	defaultHost string = "127.0.0.1"
+	defaultPort int = 6379
+	defaultPassword string = ""
+	defaultDB int = 0
+	defaultTCPReadBufSize int = 1024 * 256
+	defaultTCPWriteBufSize int = 1024 * 256
+	defaultTCPReadTimeout time.Duration = time.Millisecond
+	defaultTCPWriteTimeout time.Duration = time.Millisecond
+	defaultIOReadBufSize int = 1024 * 256
+	defaultIOWriteBufSize int = 1024 * 256
 )
+
+type ConnectionSpec struct {
+	host     string
+	port     int
+	password string
+	db       int
+	tcpReadBufSize int
+	tcpWritBufSize int
+	tcpReadTimeout time.Duration
+	tcpWriteTimeout time.Duration
+	ioReadBufSize int
+	ioWriteBufSize int
+}
+
+func DefaultSpec() *ConnectionSpec {
+	return &ConnectionSpec{
+
+	}
+}
 
 type ctrlType byte
 
@@ -50,12 +79,12 @@ type Connection struct {
 	reqsPending *list.List
 
 	//发送超时信号的channel
-	sendTime    <-chan time.Time
+	sendTime <-chan time.Time
 
-	ctrlChan    chan ctrlType
-	connected   bool
-	err         error
-	pingTick    <-chan time.Time
+	ctrlChan  chan ctrlType
+	connected bool
+	err       error
+	pingTick  <-chan time.Time
 
 	lastConnect time.Time
 }
@@ -71,8 +100,8 @@ func (c *Connection) connect() {
 		return
 	}
 
-	c.readBuffer = bufio.NewReaderSize(c.Conn, 1024 * 4)
-	c.writeBuffer = bufio.NewWriterSize(c.Conn, 1024 * 4)
+	c.readBuffer = bufio.NewReaderSize(c.Conn, 1024*4)
+	c.writeBuffer = bufio.NewWriterSize(c.Conn, 1024*4)
 
 	c.connected = true
 	c.err = nil
@@ -85,7 +114,7 @@ func (c *Connection) close() {
 }
 
 func (c *Connection) ping() {
-	req := newRequst(NORMAL, nil, "PING")
+	req := newRequst(type_normal, nil, "PING")
 	c.waitingChan <- req
 }
 
@@ -113,7 +142,7 @@ func (c *Connection) handleRequetList(f func(*Request)) {
 }
 
 func (c *Connection) call(done chan *Request, cmd string, args ...interface{}) (*Reply, error) {
-	req := newRequst(NORMAL, done, cmd, args...)
+	req := newRequst(type_normal, done, cmd, args...)
 	c.waitingChan <- req
 	return req.GetReply()
 }
@@ -149,13 +178,13 @@ func (c *Connection) sendRequest(req *Request) {
 }
 
 func (c *Connection) pubsubWait(done chan *Request) (*Reply, error) {
-	req := newRequst(ONLY_WAIT, done, "")
+	req := newRequst(type_only_wait, done, "")
 	c.waitingChan <- req
 	return req.GetReply()
 }
 
 func (c *Connection) pubsubSend(cmd string, args ...interface{}) error {
-	req := newRequst(ONLY_SEND, nil, cmd, args...)
+	req := newRequst(type_only_send, nil, cmd, args...)
 	c.waitingChan <- req
 	return req.err
 }
@@ -205,7 +234,7 @@ func (c *Connection) process() {
 		select {
 		case ctrl := <-c.ctrlChan:
 			c.control(ctrl)
-		case <- c.sendTime:
+		case <-c.sendTime:
 			c.doPipelining()
 		case req := <-c.waitingChan:
 			c.sendRequest(req)

@@ -46,9 +46,13 @@ type Reply struct {
 type requestType byte
 
 const (
-	NORMAL requestType = iota
-	ONLY_SEND
-	ONLY_WAIT
+	type_normal requestType = iota
+	type_only_send
+	type_only_wait
+
+	//control command
+	type_ctrl_reconnect
+	type_ctrl_shutdown
 )
 
 type Request struct {
