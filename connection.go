@@ -18,36 +18,48 @@ var (
 )
 
 const (
-	connectTimeout     time.Duration = time.Second * 1
-	intervalReconnect  time.Duration = time.Second * 1
-	intervalPing       time.Duration = time.Second * 1
-	waitingChanLen     int           = 100
-	ctrlChanLen        int           = 10
-	defaultPPLen       int           = 40
-	defaultSendTimeout time.Duration = time.Millisecond
-	defaultHost string = "127.0.0.1"
-	defaultPort int = 6379
-	defaultPassword string = ""
-	defaultDB int = 0
-	defaultTCPReadBufSize int = 1024 * 256
-	defaultTCPWriteBufSize int = 1024 * 256
-	defaultTCPReadTimeout time.Duration = time.Millisecond
+	defaultSendTimeout     time.Duration = time.Millisecond
+	defaultHost            string        = "127.0.0.1"
+	defaultPort            int           = 6379
+	defaultPassword        string        = ""
+	defaultDB              int           = 0
+	defaultTCPConnectTimeout time.Duration = time.Second
+	defaultTCPReadBufSize  int           = 1024 * 256
+	defaultTCPWriteBufSize int           = 1024 * 256
+	defaultTCPReadTimeout  time.Duration = time.Millisecond
 	defaultTCPWriteTimeout time.Duration = time.Millisecond
-	defaultIOReadBufSize int = 1024 * 256
-	defaultIOWriteBufSize int = 1024 * 256
+	defaultTCPLinger                     = 0 // -n: finish io; 0: discard, +n: wait for n secs to finish
+	defaultTCPKeepalive                  = true
+	defaultIOReadBufSize   int           = 1024 * 256
+	defaultIOWriteBufSize  int           = 1024 * 256
+	defaultPipeliningSize	int		= 40
+	defaultCommandTimeout	time.Duration = time.Millisecond
+	defaultReconnectInterval	time.Duration = time.Second
+	defaultPingInterval	time.Duration  = time.Second
+	defaultWaitingChanSize int = 100
+	defaultControlChanSize	int = 10
 )
 
 type ConnectionSpec struct {
-	host     string
-	port     int
-	password string
-	db       int
-	tcpReadBufSize int
-	tcpWritBufSize int
-	tcpReadTimeout time.Duration
+	host            string
+	port            int
+	password        string
+	db              int
+	tcpConnectTimeout time.Duration
+	tcpReadBufSize  int
+	tcpWritBufSize  int
+	tcpReadTimeout  time.Duration
 	tcpWriteTimeout time.Duration
-	ioReadBufSize int
-	ioWriteBufSize int
+	tcpLinger		int
+	tcpKeepalive	bool
+	ioReadBufSize   int
+	ioWriteBufSize  int
+	pipeliningSize	int
+	commandTimeout		time.Duration
+	reconnectInterval time.Duration
+	pingInterval	time.Duration
+	waitingChanSize	int
+	controlChanSize int
 }
 
 func DefaultSpec() *ConnectionSpec {
@@ -56,12 +68,21 @@ func DefaultSpec() *ConnectionSpec {
 		defaultPort,
 		defaultPassword,
 		defaultDB,
+		defaultTCPConnectTimeout,
 		defaultTCPReadBufSize,
 		defaultTCPWriteBufSize,
 		defaultTCPReadTimeout,
 		defaultTCPWriteTimeout,
+		defaultTCPLinger,
+		defaultTCPKeepalive,
 		defaultIOReadBufSize,
 		defaultIOWriteBufSize,
+		defaultPipeliningSize,
+		defaultCommandTimeout,
+		defaultReconnectInterval,
+		defaultPingInterval,
+		defaultWaitingChanSize,
+		defaultControlChanSize,
 	}
 }
 
@@ -74,17 +95,15 @@ const (
 
 type Connection struct {
 	net.Conn
-	timeout     time.Duration
 	readBuffer  *bufio.Reader
 	writeBuffer *bufio.Writer
-	addr        string
+	connSpec    *ConnectionSpec
 	stop        bool
 
 	//等待送入发送线程的请求
 	waitingChan chan *Request
 
 	//等待发送的请求
-	ppLen       int
 	reqsPending *list.List
 
 	//发送超时信号的channel
@@ -96,6 +115,10 @@ type Connection struct {
 	pingTick  <-chan time.Time
 
 	lastConnect time.Time
+}
+
+func createTCPConnection(spec *ConnectionSpec) (net.Conn, error) {
+	conn, err := net.DialTimeout(spec.)
 }
 
 func (c *Connection) connect() {
@@ -276,13 +299,11 @@ func (c *Connection) readAllReply() {
 	})
 }
 
-func NewConnection(addr string, plLengh int, timeout time.Duration) (conn *Connection) {
+func NewConnection(spec *ConnectionSpec) (conn *Connection) {
 	conn = &Connection{
-		addr:        addr,
 		stop:        false,
 		connected:   false,
-		ppLen:       plLengh,
-		timeout:     timeout,
+		connSpec:	spec,
 		reqsPending: list.New(),
 		waitingChan: make(chan *Request, waitingChanLen),
 		ctrlChan:    make(chan ctrlType, ctrlChanLen),
