@@ -117,23 +117,35 @@ type Connection struct {
 	lastConnect time.Time
 }
 
-func createTCPConnection(spec *ConnectionSpec) (net.Conn, error) {
-	conn, err := net.DialTimeout(spec.)
+func createTCPConnection(s *ConnectionSpec) (net.Conn, error) {
+	addr := fmt.Sprintf("%s:%d", s.host, s.port)
+	conn, err := net.DialTimeout(s.tcpConnectTimeout, addr, s.tcpConnectTimeout)
+	if err != nil {
+		return
+	}
+
+	c := conn.(net.TCPConn)
+	c.SetKeepAlive(s.tcpKeepalive)
+	c.SetReadBuffer(s.tcpReadBufSize)
+	c.SetWriteBuffer(s.tcpWritBufSize)
+	c.SetLinger(s.tcpLinger)
+
+	return conn, nil
 }
 
 func (c *Connection) connect() {
 	c.connected = false
 
 	var err error
-	c.Conn, err = net.DialTimeout("tcp", c.addr, connectTimeout)
+	c.Conn, err = createTCPConnection(c.connSpec)
 	if err != nil {
 		c.err = err
-		log.Printf("can't connect to redis %v, error:%v", c.addr, err)
+		log.Printf("can't connect to redis %v, error:%v", c.Conn.RemoteAddr().String(), err)
 		return
 	}
 
-	c.readBuffer = bufio.NewReaderSize(c.Conn, 1024*4)
-	c.writeBuffer = bufio.NewWriterSize(c.Conn, 1024*4)
+	c.readBuffer = bufio.NewReaderSize(c.Conn, c.connSpec.ioReadBufSize)
+	c.writeBuffer = bufio.NewWriterSize(c.Conn, c.connSpec.ioWriteBufSize)
 
 	c.connected = true
 	c.err = nil
@@ -190,7 +202,7 @@ func (c *Connection) sendRequest(req *Request) {
 	}()
 
 	if c.reqsPending.Len() == 0 {
-		c.sendTime = time.After(c.timeout)
+		c.sendTime = time.After(c.connSpec.commandTimeout)
 	}
 	c.reqsPending.PushBack(req)
 
@@ -202,7 +214,7 @@ func (c *Connection) sendRequest(req *Request) {
 		panic(ErrNotConnected)
 	}
 
-	if c.reqsPending.Len() < c.ppLen {
+	if c.reqsPending.Len() < c.connSpec.pipeliningSize {
 		return
 	}
 
@@ -223,7 +235,7 @@ func (c *Connection) pubsubSend(cmd string, args ...interface{}) error {
 
 func (c *Connection) recover(err error) {
 	//一定时间段内只尝试重连一次
-	if c.lastConnect.Add(intervalReconnect).After(time.Now()) {
+	if c.lastConnect.Add(c.connSpec.reconnectInterval).After(time.Now()) {
 		return
 	}
 
@@ -305,9 +317,9 @@ func NewConnection(spec *ConnectionSpec) (conn *Connection) {
 		connected:   false,
 		connSpec:	spec,
 		reqsPending: list.New(),
-		waitingChan: make(chan *Request, waitingChanLen),
-		ctrlChan:    make(chan ctrlType, ctrlChanLen),
-		pingTick:    time.Tick(intervalPing),
+		waitingChan: make(chan *Request, spec.waitingChanSize),
+		ctrlChan:    make(chan ctrlType, spec.controlChanSize),
+		pingTick:    time.Tick(spec.pingInterval),
 		lastConnect: time.Now(),
 	}
 
