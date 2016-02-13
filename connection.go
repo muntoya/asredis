@@ -296,15 +296,35 @@ func (c *Connection) doPipelining() {
 
 func (c *Connection) writeAllRequst() {
 	c.handleRequetList(func(req *Request) {
-		writeReqToBuf(c.writeBuffer, req)
+		switch req.reqtype {
+		case type_normal:
+			fallthrough
+		case type_only_send:
+			writeReqToBuf(c.writeBuffer, req)
+		case type_only_wait:
+		case type_ctrl_reconnect:
+		case type_ctrl_shutdown:
+		default:
+
+		}
 	})
 	c.writeBuffer.Flush()
 }
 
 func (c *Connection) readAllReply() {
 	c.handleRequetList(func(req *Request) {
-		reply := readReply(c.readBuffer)
-		req.reply = reply
+		switch req.reqtype {
+		case type_normal:
+			fallthrough
+		case type_only_wait:
+			reply := readReply(c.readBuffer)
+			req.reply = reply
+		case type_only_send:
+		case type_ctrl_reconnect:
+		case type_ctrl_shutdown:
+		default:
+
+		}
 	})
 	c.handleRequetList(func(req *Request) {
 		req.done()
