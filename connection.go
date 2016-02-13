@@ -86,13 +86,6 @@ func DefaultSpec() *ConnectionSpec {
 	}
 }
 
-type ctrlType byte
-
-const (
-	ctrlReconnect ctrlType = iota
-	ctrlShutdown
-)
-
 type Connection struct {
 	net.Conn
 	readBuffer  *bufio.Reader
@@ -109,7 +102,6 @@ type Connection struct {
 	//发送超时信号的channel
 	sendTime <-chan time.Time
 
-	ctrlChan  chan ctrlType
 	connected bool
 	err       error
 	pingTick  <-chan time.Time
@@ -170,11 +162,11 @@ func (c *Connection) isConnected() bool {
 }
 
 func (c *Connection) sendReconnectCtrl() {
-	c.ctrlChan <- ctrlReconnect
+	c.newRequst(type_ctrl_reconnect, nil, "")
 }
 
 func (c *Connection) sendShutdownCtrl() {
-	c.ctrlChan <- ctrlShutdown
+	c.newRequst(type_ctrl_shutdown, nil, "")
 }
 
 func (c *Connection) handleRequetList(f func(*Request)) {
@@ -249,21 +241,6 @@ func (c *Connection) clear(err error) {
 	c.reqsPending.Init()
 }
 
-func (c *Connection) control(ctrl ctrlType) {
-	switch ctrl {
-	case ctrlReconnect:
-		c.recover(ErrNotConnected)
-	case ctrlShutdown:
-		c.stop = true
-		if c.Conn != nil {
-			c.Conn.Close()
-		}
-		c.clear(ErrNotRunning)
-	default:
-		log.Panic(ErrUnexpectedCtrlType)
-	}
-}
-
 //处理读请求和控制请求
 func (c *Connection) process() {
 	for {
@@ -272,8 +249,6 @@ func (c *Connection) process() {
 		}
 
 		select {
-		case ctrl := <-c.ctrlChan:
-			c.control(ctrl)
 		case <-c.sendTime:
 			c.doPipelining()
 		case req := <-c.waitingChan:
@@ -299,7 +274,13 @@ func (c *Connection) writeAllRequst() {
 			writeReqToBuf(c.writeBuffer, req)
 		case type_only_wait:
 		case type_ctrl_reconnect:
+			c.recover(ErrNotConnected)
 		case type_ctrl_shutdown:
+			c.stop = true
+			if c.Conn != nil {
+				c.Conn.Close()
+			}
+			c.clear(ErrNotRunning)
 		default:
 
 		}
@@ -334,7 +315,6 @@ func NewConnection(spec *ConnectionSpec) (conn *Connection) {
 		connSpec:	spec,
 		reqsPending: list.New(),
 		waitingChan: make(chan *Request, spec.waitingChanSize),
-		ctrlChan:    make(chan ctrlType, spec.controlChanSize),
 		pingTick:    time.Tick(spec.pingInterval),
 		lastConnect: time.Now(),
 	}
