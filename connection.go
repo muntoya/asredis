@@ -158,8 +158,7 @@ func (c *Connection) close() {
 }
 
 func (c *Connection) ping() {
-	req := newRequst(type_normal, nil, "PING")
-	c.waitingChan <- req
+	c.newRequst(type_normal, nil, "PING")
 }
 
 func (c *Connection) isShutDown() bool {
@@ -186,8 +185,7 @@ func (c *Connection) handleRequetList(f func(*Request)) {
 }
 
 func (c *Connection) call(done chan *Request, cmd string, args ...interface{}) (*Reply, error) {
-	req := newRequst(type_normal, done, cmd, args...)
-	c.waitingChan <- req
+	req := c.newRequst(type_normal, done, cmd, args...)
 	return req.GetReply()
 }
 
@@ -222,14 +220,12 @@ func (c *Connection) sendRequest(req *Request) {
 }
 
 func (c *Connection) pubsubWait(done chan *Request) (*Reply, error) {
-	req := newRequst(type_only_wait, done, "")
-	c.waitingChan <- req
+	req := c.newRequst(type_only_wait, done, "")
 	return req.GetReply()
 }
 
 func (c *Connection) pubsubSend(cmd string, args ...interface{}) error {
-	req := newRequst(type_only_send, nil, cmd, args...)
-	c.waitingChan <- req
+	req := c.newRequst(type_only_send, nil, cmd, args...)
 	return req.err
 }
 
@@ -350,7 +346,7 @@ func NewConnection(spec *ConnectionSpec) (conn *Connection) {
 	return
 }
 
-func newRequst(reqtype requestType, done chan *Request, cmd string, args ...interface{}) *Request {
+func (c *Connection) newRequst(reqtype requestType, done chan *Request, cmd string, args ...interface{}) *Request {
 	req := new(Request)
 	req.reqtype = reqtype
 
@@ -363,5 +359,6 @@ func newRequst(reqtype requestType, done chan *Request, cmd string, args ...inte
 
 	req.cmd = cmd
 	req.args = args
+	c.waitingChan <- req
 	return req
 }
