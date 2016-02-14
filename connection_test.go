@@ -2,20 +2,21 @@ package asredis
 
 import (
 	"time"
-//	"runtime/debug"
-	"testing"
+	//	"runtime/debug"
 	"fmt"
-	"sync"
 	"github.com/stretchr/testify/assert"
+	"sync"
+	"testing"
 )
 
 func TestConnection(t *testing.T) {
 	//t.Skip("skip connection test")
-	client:= NewConnection("127.0.0.1:6379", defaultPPLen, defaultSendTimeout)
-	defer client.close()
+	spec := DefaultSpec()
+	conn := NewConnection(spec)
+	defer conn.close()
 
 	c := make(chan *Request, 1)
-	reply, err := client.call(c, "SET", "int", 2)
+	reply, err := conn.call(c, "SET", "int", 2)
 	if err != nil {
 		t.Fatal(err)
 	} else {
@@ -25,7 +26,7 @@ func TestConnection(t *testing.T) {
 	assert.Equal(t, reply.Type, STRING)
 	assert.Equal(t, reply.Value, "OK")
 
-	reply, err = client.call(c, "GET", "int")
+	reply, err = conn.call(c, "GET", "int")
 	if err != nil {
 		t.Fatal(err)
 	} else {
@@ -33,15 +34,16 @@ func TestConnection(t *testing.T) {
 	}
 
 	l := []interface{}{"1", "2", "3", "4", "5"}
-	client.call(c, "DEL", "list")
-	reply, err = client.call(c, "RPUSH", append([]interface{}{"list"}, l...)...)
-	reply, err = client.call(c, "LRANGE", "list", 0, -1)
+	conn.call(c, "DEL", "list")
+	reply, err = conn.call(c, "RPUSH", append([]interface{}{"list"}, l...)...)
+	reply, err = conn.call(c, "LRANGE", "list", 0, -1)
 	assert.Equal(t, reply.Array, l)
 }
 
 func TestConnRoutine(t *testing.T) {
 	//t.Skip("skip connection routine")
-	conn:= NewConnection("127.0.0.1:6379", defaultPPLen, defaultSendTimeout)
+	spec := DefaultSpec()
+	conn := NewConnection(spec)
 	defer conn.close()
 
 	routineNum := 50
@@ -66,18 +68,18 @@ func TestConnRoutine(t *testing.T) {
 
 func TestConnError(t *testing.T) {
 	t.Skip("skip connnection loop")
-	client := NewConnection("127.0.0.1:6379", defaultPPLen, defaultSendTimeout)
-
+	spec := DefaultSpec()
+	conn := NewConnection(spec)
 	c := make(chan *Request, 1)
 
 	go func() {
 		time.Sleep(time.Second * 1)
-		client.Conn.Close()
+		conn.Conn.Close()
 	}()
 
-	for i:= 0; i < 3; i++ {
+	for i := 0; i < 3; i++ {
 		fmt.Println("go", i)
-		reply, err := client.call(c, "GET", "int")
+		reply, err := conn.call(c, "GET", "int")
 		fmt.Println(i, err)
 		if err == nil {
 			t.Log(reply.Type, reply.Value)

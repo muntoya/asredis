@@ -111,12 +111,12 @@ type Connection struct {
 
 func createTCPConnection(s *ConnectionSpec) (net.Conn, error) {
 	addr := fmt.Sprintf("%s:%d", s.host, s.port)
-	conn, err := net.DialTimeout(s.tcpConnectTimeout, addr, s.tcpConnectTimeout)
+	conn, err := net.DialTimeout("tcp", addr, s.tcpConnectTimeout)
 	if err != nil {
-		return
+		return nil, err
 	}
 
-	c := conn.(net.TCPConn)
+	c := conn.(*net.TCPConn)
 	c.SetKeepAlive(s.tcpKeepalive)
 	c.SetReadBuffer(s.tcpReadBufSize)
 	c.SetWriteBuffer(s.tcpWritBufSize)

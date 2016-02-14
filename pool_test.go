@@ -8,12 +8,12 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
-	"time"
 )
 
 func TestPool(t *testing.T) {
 	t.Skip("skip pool")
-	pool := NewPool("127.0.0.1:6379", 5, 10, 10, time.Millisecond)
+	spec := DefaultSpec()
+	pool := NewPool(spec, 5, 10)
 	for i := 0; i < 100; i++ {
 		_, err := pool.Exec("set", fmt.Sprintf("int%d", i), i)
 		assert.Equal(t, err, nil)
@@ -28,7 +28,8 @@ func TestPool(t *testing.T) {
 
 
 func BenchmarkSet(b *testing.B) {
-	pool := NewPool("127.0.0.1:6379", 5, 500, 50, time.Millisecond)
+	spec := DefaultSpec()
+	pool := NewPool(spec, 5, 500)
 
 	routineNum := 200
 	times := 10000

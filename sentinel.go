@@ -62,9 +62,9 @@ func (s *SConnection) GetSlaves(master string) (ppArray []*ConnProp, err error) 
 	return
 }
 
-func NewSConnection(addr string) *SConnection {
+func NewSConnection(spec *ConnectionSpec) *SConnection {
 	return &SConnection{
-		Connection: NewConnection(addr, defaultPPLen, defaultSendTimeout),
+		Connection: NewConnection(spec),
 		commandChan: make(chan *Request, 1),
 	}
 }

@@ -124,7 +124,7 @@ func (c *Cluster) updateSlots() (err error) {
 		for _, addr := range slots.addrs {
 			pool, ok := c.pools[addr]
 			if !ok {
-				pool = NewPool(addr, numConn, numChan, c.ppLen, c.sendTimeout)
+				pool = NewPool(c., c.ppLen, c.sendTimeout)
 				c.pools[addr] = pool
 			}
 			pools = append(pools, pool)
@@ -141,6 +141,7 @@ func (c *Cluster) updateSlots() (err error) {
 }
 
 func (c *Cluster) getPoolsInfo() (pool *Pool, err error) {
+	spec := DefaultSpec()
 	for _, addr := range c.addrs {
 		pool = NewPool(addr, 1, 1, c.ppLen, c.sendTimeout)
 		if pool.ConnsFail() > 0 {
