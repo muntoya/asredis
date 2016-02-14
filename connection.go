@@ -18,48 +18,48 @@ var (
 )
 
 const (
-	defaultSendTimeout     time.Duration = time.Millisecond
-	defaultHost            string        = "127.0.0.1"
-	defaultPort            int           = 6379
-	defaultPassword        string        = ""
-	defaultDB              int           = 0
+	defaultSendTimeout       time.Duration = time.Millisecond
+	defaultHost              string        = "127.0.0.1"
+	defaultPort              int           = 6379
+	defaultPassword          string        = ""
+	defaultDB                int           = 0
 	defaultTCPConnectTimeout time.Duration = time.Second
-	defaultTCPReadBufSize  int           = 1024 * 256
-	defaultTCPWriteBufSize int           = 1024 * 256
-	defaultTCPReadTimeout  time.Duration = time.Millisecond
-	defaultTCPWriteTimeout time.Duration = time.Millisecond
-	defaultTCPLinger                     = 0 // -n: finish io; 0: discard, +n: wait for n secs to finish
-	defaultTCPKeepalive                  = true
-	defaultIOReadBufSize   int           = 1024 * 256
-	defaultIOWriteBufSize  int           = 1024 * 256
-	defaultPipeliningSize	int		= 40
-	defaultCommandTimeout	time.Duration = time.Millisecond
-	defaultReconnectInterval	time.Duration = time.Second
-	defaultPingInterval	time.Duration  = time.Second
-	defaultWaitingChanSize int = 100
-	defaultControlChanSize	int = 10
+	defaultTCPReadBufSize    int           = 1024 * 256
+	defaultTCPWriteBufSize   int           = 1024 * 256
+	defaultTCPReadTimeout    time.Duration = time.Millisecond
+	defaultTCPWriteTimeout   time.Duration = time.Millisecond
+	defaultTCPLinger                       = 0 // -n: finish io; 0: discard, +n: wait for n secs to finish
+	defaultTCPKeepalive                    = true
+	defaultIOReadBufSize     int           = 1024 * 256
+	defaultIOWriteBufSize    int           = 1024 * 256
+	defaultPipeliningSize    int           = 40
+	defaultCommandTimeout    time.Duration = time.Millisecond
+	defaultReconnectInterval time.Duration = time.Second
+	defaultPingInterval      time.Duration = time.Second
+	defaultWaitingChanSize   int           = 100
+	defaultControlChanSize   int           = 10
 )
 
 type ConnectionSpec struct {
-	host            string
-	port            int
-	password        string
-	db              int
+	host              string
+	port              int
+	password          string
+	db                int
 	tcpConnectTimeout time.Duration
-	tcpReadBufSize  int
-	tcpWritBufSize  int
-	tcpReadTimeout  time.Duration
-	tcpWriteTimeout time.Duration
-	tcpLinger		int
-	tcpKeepalive	bool
-	ioReadBufSize   int
-	ioWriteBufSize  int
-	pipeliningSize	int
-	commandTimeout		time.Duration
+	tcpReadBufSize    int
+	tcpWritBufSize    int
+	tcpReadTimeout    time.Duration
+	tcpWriteTimeout   time.Duration
+	tcpLinger         int
+	tcpKeepalive      bool
+	ioReadBufSize     int
+	ioWriteBufSize    int
+	pipeliningSize    int
+	commandTimeout    time.Duration
 	reconnectInterval time.Duration
-	pingInterval	time.Duration
-	waitingChanSize	int
-	controlChanSize int
+	pingInterval      time.Duration
+	waitingChanSize   int
+	controlChanSize   int
 }
 
 func DefaultSpec() *ConnectionSpec {
@@ -150,7 +150,7 @@ func (c *Connection) close() {
 }
 
 func (c *Connection) ping() {
-	c.newRequst(type_normal, nil, "PING")
+	c.pushRequst(type_normal, nil, "PING")
 }
 
 func (c *Connection) isShutDown() bool {
@@ -162,11 +162,11 @@ func (c *Connection) isConnected() bool {
 }
 
 func (c *Connection) sendReconnectCtrl() {
-	c.newRequst(type_ctrl_reconnect, nil, "")
+	c.pushRequst(type_ctrl_reconnect, nil, "")
 }
 
 func (c *Connection) sendShutdownCtrl() {
-	c.newRequst(type_ctrl_shutdown, nil, "")
+	c.pushRequst(type_ctrl_shutdown, nil, "")
 }
 
 func (c *Connection) handleRequetList(f func(*Request)) {
@@ -176,9 +176,26 @@ func (c *Connection) handleRequetList(f func(*Request)) {
 	}
 }
 
-func (c *Connection) call(done chan *Request, cmd string, args ...interface{}) (*Reply, error) {
-	req := c.newRequst(type_normal, done, cmd, args...)
+func (c *Connection) pushRequst(reqtype requestType, done chan *Request,
+	cmd string, args ...interface{}) (*Reply, error) {
+	req := new(Request)
+	req.reqtype = reqtype
+
+	if done != nil {
+		if cap(done) == 0 {
+			log.Panic("redis client: done channel is unbuffered")
+		}
+		req.Done = done
+	}
+
+	req.cmd = cmd
+	req.args = args
+	c.waitingChan <- req
 	return req.GetReply()
+}
+
+func (c *Connection) call(done chan *Request, cmd string, args ...interface{}) (*Reply, error) {
+	return c.pushRequst(type_normal, done, cmd, args...)
 }
 
 func (c *Connection) sendRequest(req *Request) {
@@ -212,13 +229,12 @@ func (c *Connection) sendRequest(req *Request) {
 }
 
 func (c *Connection) pubsubWait(done chan *Request) (*Reply, error) {
-	req := c.newRequst(type_only_wait, done, "")
-	return req.GetReply()
+	return c.pushRequst(type_only_wait, done, "")
 }
 
 func (c *Connection) pubsubSend(cmd string, args ...interface{}) error {
-	req := c.newRequst(type_only_send, nil, cmd, args...)
-	return req.err
+	_, err := c.pushRequst(type_only_send, nil, cmd, args...)
+	return err
 }
 
 func (c *Connection) recover(err error) {
@@ -312,7 +328,7 @@ func NewConnection(spec *ConnectionSpec) (conn *Connection) {
 	conn = &Connection{
 		stop:        false,
 		connected:   false,
-		connSpec:	spec,
+		connSpec:    spec,
 		reqsPending: list.New(),
 		waitingChan: make(chan *Request, spec.waitingChanSize),
 		pingTick:    time.Tick(spec.pingInterval),
@@ -324,21 +340,4 @@ func NewConnection(spec *ConnectionSpec) (conn *Connection) {
 	go conn.process()
 
 	return
-}
-
-func (c *Connection) newRequst(reqtype requestType, done chan *Request, cmd string, args ...interface{}) *Request {
-	req := new(Request)
-	req.reqtype = reqtype
-
-	if done != nil {
-		if cap(done) == 0 {
-			log.Panic("redis client: done channel is unbuffered")
-		}
-		req.Done = done
-	}
-
-	req.cmd = cmd
-	req.args = args
-	c.waitingChan <- req
-	return req
 }

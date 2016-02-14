@@ -51,8 +51,10 @@ const (
 	type_only_wait
 
 	//control command
+	type_ctrl_begin	//begin标记
 	type_ctrl_reconnect
 	type_ctrl_shutdown
+	type_ctrl_end	//end标记
 )
 
 type Request struct {
@@ -71,7 +73,9 @@ func (r *Request) done() {
 }
 
 func (r *Request) GetReply() (*Reply, error) {
-	<-r.Done
+	if r.Done != nil {
+		<-r.Done
+	}
 	return r.reply, r.err
 }
 
