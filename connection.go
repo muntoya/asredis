@@ -20,7 +20,7 @@ var (
 const (
 	defaultSendTimeout       time.Duration = time.Millisecond
 	defaultHost              string        = "127.0.0.1"
-	defaultPort              int           = 6379
+	defaultPort              int16         = 6379
 	defaultPassword          string        = ""
 	defaultDB                int           = 0
 	defaultTCPConnectTimeout time.Duration = time.Second
@@ -41,28 +41,28 @@ const (
 )
 
 type ConnectionSpec struct {
-	host              string
-	port              int
-	password          string
-	db                int
-	tcpConnectTimeout time.Duration
-	tcpReadBufSize    int
-	tcpWritBufSize    int
-	tcpReadTimeout    time.Duration
-	tcpWriteTimeout   time.Duration
-	tcpLinger         int
-	tcpKeepalive      bool
-	ioReadBufSize     int
-	ioWriteBufSize    int
-	pipeliningSize    int
-	commandTimeout    time.Duration
-	reconnectInterval time.Duration
-	pingInterval      time.Duration
-	waitingChanSize   int
-	controlChanSize   int
+	Host              string
+	Port              int16
+	Password          string
+	DB                int
+	TCPConnectTimeout time.Duration
+	TCPReadBufSize    int
+	TCPWritBufSize    int
+	TCPReadTimeout    time.Duration
+	TCPWriteTimeout   time.Duration
+	TCPLinger         int
+	TCPKeepalive      bool
+	IOReadBufSize     int
+	IOWriteBufSize    int
+	PipeliningSize    int
+	CommandTimeout    time.Duration
+	ReconnectInterval time.Duration
+	PingInterval      time.Duration
+	WaitingChanSize   int
+	ControlChanSize   int
 }
 
-func DefaultSpec() *ConnectionSpec {
+func DefaultConnectionSpec() *ConnectionSpec {
 	return &ConnectionSpec{
 		defaultHost,
 		defaultPort,
@@ -110,17 +110,17 @@ type Connection struct {
 }
 
 func createTCPConnection(s *ConnectionSpec) (net.Conn, error) {
-	addr := fmt.Sprintf("%s:%d", s.host, s.port)
-	conn, err := net.DialTimeout("tcp", addr, s.tcpConnectTimeout)
+	addr := fmt.Sprintf("%s:%d", s.Host, s.Port)
+	conn, err := net.DialTimeout("tcp", addr, s.TCPConnectTimeout)
 	if err != nil {
 		return nil, err
 	}
 
 	c := conn.(*net.TCPConn)
-	c.SetKeepAlive(s.tcpKeepalive)
-	c.SetReadBuffer(s.tcpReadBufSize)
-	c.SetWriteBuffer(s.tcpWritBufSize)
-	c.SetLinger(s.tcpLinger)
+	c.SetKeepAlive(s.TCPKeepalive)
+	c.SetReadBuffer(s.TCPReadBufSize)
+	c.SetWriteBuffer(s.TCPWritBufSize)
+	c.SetLinger(s.TCPLinger)
 
 	return conn, nil
 }
@@ -136,8 +136,8 @@ func (c *Connection) connect() {
 		return
 	}
 
-	c.readBuffer = bufio.NewReaderSize(c.Conn, c.connSpec.ioReadBufSize)
-	c.writeBuffer = bufio.NewWriterSize(c.Conn, c.connSpec.ioWriteBufSize)
+	c.readBuffer = bufio.NewReaderSize(c.Conn, c.connSpec.IOReadBufSize)
+	c.writeBuffer = bufio.NewWriterSize(c.Conn, c.connSpec.IOWriteBufSize)
 
 	c.connected = true
 	c.err = nil
@@ -209,7 +209,7 @@ func (c *Connection) sendRequest(req *Request) {
 	}()
 
 	if c.reqsPending.Len() == 0 {
-		c.sendTime = time.After(c.connSpec.commandTimeout)
+		c.sendTime = time.After(c.connSpec.CommandTimeout)
 	}
 	c.reqsPending.PushBack(req)
 
@@ -221,7 +221,7 @@ func (c *Connection) sendRequest(req *Request) {
 		panic(ErrNotConnected)
 	}
 
-	if c.reqsPending.Len() < c.connSpec.pipeliningSize {
+	if c.reqsPending.Len() < c.connSpec.PipeliningSize {
 		return
 	}
 
@@ -239,7 +239,7 @@ func (c *Connection) pubsubSend(cmd string, args ...interface{}) error {
 
 func (c *Connection) recover(err error) {
 	//一定时间段内只尝试重连一次
-	if c.lastConnect.Add(c.connSpec.reconnectInterval).After(time.Now()) {
+	if c.lastConnect.Add(c.connSpec.ReconnectInterval).After(time.Now()) {
 		return
 	}
 
@@ -330,8 +330,8 @@ func NewConnection(spec *ConnectionSpec) (conn *Connection) {
 		connected:   false,
 		connSpec:    spec,
 		reqsPending: list.New(),
-		waitingChan: make(chan *Request, spec.waitingChanSize),
-		pingTick:    time.Tick(spec.pingInterval),
+		waitingChan: make(chan *Request, spec.WaitingChanSize),
+		pingTick:    time.Tick(spec.PingInterval),
 		lastConnect: time.Now(),
 	}
 

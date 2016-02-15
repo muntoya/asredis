@@ -4,26 +4,40 @@ import (
 //	"time"
 	"sync/atomic"
 	//"fmt"
-	"time"
 )
+
+type PoolSpec struct {
+	*ConnectionSpec
+
+	//连接个数
+	PoolSize	int32
+
+	ChanSize	int32
+}
+
+func DefaultPoolSpec() *PoolSpec {
+	return &PoolSpec{
+		ConnectionSpec: DefaultConnectionSpec(),
+		PoolSize:	10,
+		ChanSize:	500,
+	}
+}
 
 // 用来保存连接至单个redis进程的多个连接
 type Pool struct {
-	clients     []*Connection
-	connSpec	*ConnectionSpec
-	replyChan   chan chan *Request
-	nConn       int32
-	nChan       int32
-	msgID       int32
+	conns     []*Connection
+	poolSpec  *PoolSpec
+	replyChan chan chan *Request
+	msgID     int32
 }
 
 func (p *Pool) ConnsCreate() int32 {
-	return p.nConn
+	return p.poolSpec.PoolSize
 }
 
 func (p *Pool) ConnsFail() int32 {
 	var i int32 = 0
-	for _, c := range p.clients {
+	for _, c := range p.conns {
 		if !c.isConnected() {
 			i++
 		}
@@ -33,8 +47,8 @@ func (p *Pool) ConnsFail() int32 {
 
 func (p *Pool) Exec(cmd string, args ...interface{}) (reply *Reply, err error) {
 	msgID := atomic.AddInt32(&p.msgID, 1)
-	connID := msgID % p.nConn
-	conn := p.clients[connID]
+	connID := msgID % p.poolSpec.PoolSize
+	conn := p.conns[connID]
 	c := <-p.replyChan
 	reply, err = conn.call(c, cmd, args...)
 	p.replyChan <- c
@@ -42,7 +56,7 @@ func (p *Pool) Exec(cmd string, args ...interface{}) (reply *Reply, err error) {
 }
 
 func (p *Pool) Close() {
-	for _, c := range p.clients {
+	for _, c := range p.conns {
 		c.close()
 	}
 
@@ -66,22 +80,20 @@ func (p *Pool) Eval(l *LuaEval, args ...interface{}) (reply *Reply, err error) {
 	return
 }
 
-func NewPool(spec *ConnectionSpec, nConn, nChan int32) *Pool {
-	clients := make([]*Connection, nConn)
+func NewPool(spec *PoolSpec) *Pool {
+	conns := make([]*Connection, spec.PoolSize)
 	var i int32 = 0
-	for ; i < nConn; i++ {
-		clients[i] = NewConnection(spec)
+	for ; i < spec.PoolSize; i++ {
+		conns[i] = NewConnection(spec.ConnectionSpec)
 	}
 
 	pool := &Pool{
-		clients:    clients,
-		connSpec:   spec,
-		replyChan:  make(chan chan *Request, nChan),
-		nConn:      nConn,
-		nChan:      nChan,
+		conns:    conns,
+		poolSpec:   spec,
+		replyChan:  make(chan chan *Request, spec.ChanSize),
 	}
 
-	for i = 0; i < nChan; i++ {
+	for i = 0; i < spec.ChanSize; i++ {
 		pool.replyChan <- make(chan *Request, 1)
 	}
 

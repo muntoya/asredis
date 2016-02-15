@@ -12,8 +12,8 @@ import (
 
 func TestPool(t *testing.T) {
 	t.Skip("skip pool")
-	spec := DefaultSpec()
-	pool := NewPool(spec, 5, 10)
+	spec := DefaultPoolSpec()
+	pool := NewPool(spec)
 	for i := 0; i < 100; i++ {
 		_, err := pool.Exec("set", fmt.Sprintf("int%d", i), i)
 		assert.Equal(t, err, nil)
@@ -28,8 +28,8 @@ func TestPool(t *testing.T) {
 
 
 func BenchmarkSet(b *testing.B) {
-	spec := DefaultSpec()
-	pool := NewPool(spec, 5, 500)
+	spec := DefaultPoolSpec()
+	pool := NewPool(spec)
 
 	routineNum := 200
 	times := 10000

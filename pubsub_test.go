@@ -8,10 +8,11 @@ import (
 
 func TestPubsub(t *testing.T) {
 	t.Skip("skip pubsub")
-	clientSubpub := NewPubsubClient("127.0.0.1:6379")
+	spec := DefaultConnectionSpec()
+	clientSubpub := NewPubsubClient(spec)
 	clientSubpub.Sub("c1", "c2")
 
-	client := NewConnection("127.0.0.1:6379", defaultPPLen, defaultSendTimeout)
+	client := NewConnection(spec)
 	c := make(chan *Request, 1)
 	_, err := client.call(c, "PUBLISH", "c1", "haha")
 	assert.Exactly(t, nil, err)

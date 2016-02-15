@@ -11,7 +11,7 @@ import (
 
 func TestConnection(t *testing.T) {
 	//t.Skip("skip connection test")
-	spec := DefaultSpec()
+	spec := DefaultConnectionSpec()
 	conn := NewConnection(spec)
 	defer conn.close()
 
@@ -42,7 +42,7 @@ func TestConnection(t *testing.T) {
 
 func TestConnRoutine(t *testing.T) {
 	//t.Skip("skip connection routine")
-	spec := DefaultSpec()
+	spec := DefaultConnectionSpec()
 	conn := NewConnection(spec)
 	defer conn.close()
 
@@ -68,7 +68,7 @@ func TestConnRoutine(t *testing.T) {
 
 func TestConnError(t *testing.T) {
 	t.Skip("skip connnection loop")
-	spec := DefaultSpec()
+	spec := DefaultConnectionSpec()
 	conn := NewConnection(spec)
 	c := make(chan *Request, 1)
 

@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 )
 
 var (
@@ -22,25 +21,27 @@ const (
 	numChan  = 20
 )
 
+type nodeAddr struct {
+	host	string
+	port	int16
+}
+
 type mapping [numSlots][]*Pool
 
 type Cluster struct {
 	mutex sync.RWMutex
-	addrs []string
 
-	//pipelining length
-	ppLen       int
-	sendTimeout time.Duration
+	spec *PoolSpec
 
 	slotsMap mapping
-	pools    map[string]*Pool
+	pools    map[nodeAddr]*Pool
 	info     *ClusterInfo
 }
 
 type ClusterSlots struct {
 	begin uint16
 	end   uint16
-	addrs []string
+	nodes []nodeAddr
 }
 
 type ClusterInfo struct {
@@ -121,11 +122,14 @@ func (c *Cluster) updateSlots() (err error) {
 	for _, slots := range slotsArray {
 
 		var pools []*Pool
-		for _, addr := range slots.addrs {
-			pool, ok := c.pools[addr]
+		for _, node := range slots.nodes {
+			pool, ok := c.pools[node]
 			if !ok {
-				pool = NewPool(c., c.ppLen, c.sendTimeout)
-				c.pools[addr] = pool
+				spec := *c.spec
+				spec.Host = node.host
+				spec.Port = node.port
+				pool = NewPool(&spec)
+				c.pools[node] = pool
 			}
 			pools = append(pools, pool)
 		}
@@ -141,13 +145,7 @@ func (c *Cluster) updateSlots() (err error) {
 }
 
 func (c *Cluster) getPoolsInfo() (pool *Pool, err error) {
-	spec := DefaultSpec()
-	for _, addr := range c.addrs {
-		pool = NewPool(addr, 1, 1, c.ppLen, c.sendTimeout)
-		if pool.ConnsFail() > 0 {
-			continue
-		}
-	}
+	pool = NewPool(c.spec)
 
 	if pool == nil || pool.ConnsFail() > 0 {
 		err = ErrClusterNoService
@@ -174,8 +172,8 @@ func getSlotsInfo(pool *Pool) (slotsArray []*ClusterSlots) {
 		addrs := info[2].([]interface{})
 
 		for i := 0; i < len(addrs); i += 2 {
-			addr := fmt.Sprintf("%s:%d", addrs[0].(string), addrs[1].(int))
-			slots.addrs = append(slots.addrs, addr)
+			node := nodeAddr{addrs[i].(string), int16(addrs[i + 1].(int))}
+			slots.nodes = append(slots.nodes, node)
 		}
 
 		slotsArray = append(slotsArray, slots)
@@ -228,12 +226,10 @@ func (c *Cluster) checkCluster() {
 
 }
 
-func NewCluster(addrs []string, ppLen int, sendTimeout time.Duration) (cluster *Cluster, err error) {
+func NewCluster(spec *PoolSpec) (cluster *Cluster, err error) {
 	cluster = &Cluster{
-		addrs: addrs,
-		ppLen: ppLen,
-		sendTimeout: sendTimeout,
-		pools: make(map[string]*Pool),
+		spec: spec,
+		pools: make(map[nodeAddr]*Pool),
 	}
 
 	err = cluster.connect()
