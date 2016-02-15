@@ -132,20 +132,20 @@ func (c *Connection) connect() {
 	c.Conn, err = createTCPConnection(c.connSpec)
 	if err != nil {
 		c.err = err
-		log.Printf("can't connect to redis %v, error:%v", c.Conn.RemoteAddr().String(), err)
+		log.Printf("can't connect to redis %v, error:%v", c.connSpec.Host, err)
 		return
 	}
 
 	c.readBuffer = bufio.NewReaderSize(c.Conn, c.connSpec.IOReadBufSize)
 	c.writeBuffer = bufio.NewWriterSize(c.Conn, c.connSpec.IOWriteBufSize)
 
+	fmt.Println("connect")
 	c.connected = true
 	c.err = nil
 }
 
 func (c *Connection) close() {
 	c.sendShutdownCtrl()
-	c.stop = true
 	c.connected = false
 }
 
@@ -205,6 +205,7 @@ func (c *Connection) sendRequest(req *Request) {
 			req.err = e
 			c.recover(e)
 			fmt.Println(string(debug.Stack()))
+			fmt.Println(req.cmd, req.reqtype)
 		}
 	}()
 

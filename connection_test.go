@@ -46,18 +46,19 @@ func TestConnRoutine(t *testing.T) {
 	conn := NewConnection(spec)
 	defer conn.close()
 
-	routineNum := 50
-	times := 10000
+	routineNum := 1
+	times := 10
 	var w sync.WaitGroup
 	w.Add(routineNum)
 	for i := 0; i < routineNum; i++ {
 		go func(n int) {
 			c := make(chan *Request, 1)
 			key := fmt.Sprintf("int%d", n)
-			for t := 0; t < times; t++ {
+			for j := 0; j < times; j++ {
+				fmt.Println(j)
 				_, e := conn.call(c, "set", key, n)
 				if e != nil {
-					panic(e)
+					t.Fatal(e)
 				}
 			}
 			w.Done()
