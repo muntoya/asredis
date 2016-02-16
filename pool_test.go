@@ -31,7 +31,7 @@ func BenchmarkSet(b *testing.B) {
 	spec := DefaultPoolSpec()
 	pool := NewPool(spec)
 
-	routineNum := 200
+	routineNum := 80
 	times := 10000
 	var w sync.WaitGroup
 	w.Add(routineNum)

@@ -6,6 +6,11 @@ import (
 	//"fmt"
 )
 
+const (
+	defaultPoolSize int32 = 3
+	defaultChanSize int32 = 500
+)
+
 type PoolSpec struct {
 	*ConnectionSpec
 
@@ -18,8 +23,8 @@ type PoolSpec struct {
 func DefaultPoolSpec() *PoolSpec {
 	return &PoolSpec{
 		ConnectionSpec: DefaultConnectionSpec(),
-		PoolSize:	10,
-		ChanSize:	500,
+		PoolSize:	defaultPoolSize,
+		ChanSize:	defaultChanSize,
 	}
 }
 

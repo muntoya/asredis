@@ -32,12 +32,11 @@ const (
 	defaultTCPKeepalive                    = true
 	defaultIOReadBufSize     int           = 1024 * 256
 	defaultIOWriteBufSize    int           = 1024 * 256
-	defaultPipeliningSize    int           = 30
+	defaultPipeliningSize    int           = 20
 	defaultCommandTimeout    time.Duration = time.Millisecond
 	defaultReconnectInterval time.Duration = time.Second
 	defaultPingInterval      time.Duration = time.Second
 	defaultWaitingChanSize   int           = 100
-	defaultControlChanSize   int           = 10
 )
 
 type ConnectionSpec struct {
@@ -59,7 +58,6 @@ type ConnectionSpec struct {
 	ReconnectInterval time.Duration
 	PingInterval      time.Duration
 	WaitingChanSize   int
-	ControlChanSize   int
 }
 
 func DefaultConnectionSpec() *ConnectionSpec {
@@ -82,7 +80,6 @@ func DefaultConnectionSpec() *ConnectionSpec {
 		defaultReconnectInterval,
 		defaultPingInterval,
 		defaultWaitingChanSize,
-		defaultControlChanSize,
 	}
 }
 
