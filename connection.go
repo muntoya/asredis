@@ -32,7 +32,7 @@ const (
 	defaultTCPKeepalive                    = true
 	defaultIOReadBufSize     int           = 1024 * 256
 	defaultIOWriteBufSize    int           = 1024 * 256
-	defaultPipeliningSize    int           = 40
+	defaultPipeliningSize    int           = 30
 	defaultCommandTimeout    time.Duration = time.Millisecond
 	defaultReconnectInterval time.Duration = time.Second
 	defaultPingInterval      time.Duration = time.Second
@@ -139,7 +139,6 @@ func (c *Connection) connect() {
 	c.readBuffer = bufio.NewReaderSize(c.Conn, c.connSpec.IOReadBufSize)
 	c.writeBuffer = bufio.NewWriterSize(c.Conn, c.connSpec.IOWriteBufSize)
 
-	fmt.Println("connect")
 	c.connected = true
 	c.err = nil
 }
@@ -209,6 +208,11 @@ func (c *Connection) sendRequest(req *Request) {
 		}
 	}()
 
+	if req.reqtype > type_ctrl_begin && req.reqtype < type_ctrl_end {
+		c.handleCtrl(req.reqtype)
+		return
+	}
+
 	if c.reqsPending.Len() == 0 {
 		c.sendTime = time.After(c.connSpec.CommandTimeout)
 	}
@@ -258,6 +262,21 @@ func (c *Connection) clear(err error) {
 	c.reqsPending.Init()
 }
 
+func (c *Connection) handleCtrl(ctrltype requestType) {
+	switch ctrltype {
+	case type_ctrl_reconnect:
+		c.recover(ErrNotConnected)
+	case type_ctrl_shutdown:
+		c.stop = true
+		if c.Conn != nil {
+			c.Conn.Close()
+		}
+		c.clear(ErrNotRunning)
+	default:
+
+	}
+}
+
 //处理读请求和控制请求
 func (c *Connection) process() {
 	for {
@@ -290,14 +309,6 @@ func (c *Connection) writeAllRequst() {
 		case type_only_send:
 			writeReqToBuf(c.writeBuffer, req)
 		case type_only_wait:
-		case type_ctrl_reconnect:
-			c.recover(ErrNotConnected)
-		case type_ctrl_shutdown:
-			c.stop = true
-			if c.Conn != nil {
-				c.Conn.Close()
-			}
-			c.clear(ErrNotRunning)
 		default:
 
 		}
@@ -314,8 +325,6 @@ func (c *Connection) readAllReply() {
 			reply := readReply(c.readBuffer)
 			req.reply = reply
 		case type_only_send:
-		case type_ctrl_reconnect:
-		case type_ctrl_shutdown:
 		default:
 
 		}

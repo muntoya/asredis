@@ -46,8 +46,8 @@ func TestConnRoutine(t *testing.T) {
 	conn := NewConnection(spec)
 	defer conn.close()
 
-	routineNum := 1
-	times := 10
+	routineNum := 50
+	times := 100000
 	var w sync.WaitGroup
 	w.Add(routineNum)
 	for i := 0; i < routineNum; i++ {
@@ -55,7 +55,6 @@ func TestConnRoutine(t *testing.T) {
 			c := make(chan *Request, 1)
 			key := fmt.Sprintf("int%d", n)
 			for j := 0; j < times; j++ {
-				fmt.Println(j)
 				_, e := conn.call(c, "set", key, n)
 				if e != nil {
 					t.Fatal(e)
