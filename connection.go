@@ -2,7 +2,6 @@ package asredis
 
 import (
 	"bufio"
-	"container/list"
 	"errors"
 	"fmt"
 	"log"
@@ -117,7 +116,7 @@ func (c *Connection) connect() {
 	c.connected = false
 
 	var err error
-	c.Conn, err = createTCPConnection(*c.ConnectionSpec)
+	c.Conn, err = createTCPConnection(&c.ConnectionSpec)
 	if err != nil {
 		c.err = err
 		log.Printf("can't connect to redis %v, error:%v", c.Host, err)
