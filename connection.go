@@ -36,7 +36,6 @@ const (
 	defaultCommandTimeout    time.Duration = time.Millisecond
 	defaultReconnectInterval time.Duration = time.Second
 	defaultPingInterval      time.Duration = time.Second
-	defaultWaitingChanSize   int           = 100
 )
 
 type ConnectionSpec struct {
@@ -57,7 +56,6 @@ type ConnectionSpec struct {
 	CommandTimeout    time.Duration
 	ReconnectInterval time.Duration
 	PingInterval      time.Duration
-	WaitingChanSize   int
 }
 
 func DefaultConnectionSpec() *ConnectionSpec {
@@ -79,25 +77,18 @@ func DefaultConnectionSpec() *ConnectionSpec {
 		defaultCommandTimeout,
 		defaultReconnectInterval,
 		defaultPingInterval,
-		defaultWaitingChanSize,
 	}
 }
 
 type Connection struct {
 	net.Conn
+	ConnectionSpec
 	readBuffer  *bufio.Reader
 	writeBuffer *bufio.Writer
-	connSpec    *ConnectionSpec
 	stop        bool
 
 	//等待送入发送线程的请求
 	waitingChan chan []*Request
-
-	//等待发送的请求
-	reqsPending *list.List
-
-	//发送超时信号的channel
-	sendTime <-chan time.Time
 
 	connected bool
 	err       error
@@ -126,15 +117,15 @@ func (c *Connection) connect() {
 	c.connected = false
 
 	var err error
-	c.Conn, err = createTCPConnection(c.connSpec)
+	c.Conn, err = createTCPConnection(*c.ConnectionSpec)
 	if err != nil {
 		c.err = err
-		log.Printf("can't connect to redis %v, error:%v", c.connSpec.Host, err)
+		log.Printf("can't connect to redis %v, error:%v", c.Host, err)
 		return
 	}
 
-	c.readBuffer = bufio.NewReaderSize(c.Conn, c.connSpec.IOReadBufSize)
-	c.writeBuffer = bufio.NewWriterSize(c.Conn, c.connSpec.IOWriteBufSize)
+	c.readBuffer = bufio.NewReaderSize(c.Conn, c.IOReadBufSize)
+	c.writeBuffer = bufio.NewWriterSize(c.Conn, c.IOWriteBufSize)
 
 	c.connected = true
 	c.err = nil
@@ -146,7 +137,8 @@ func (c *Connection) close() {
 }
 
 func (c *Connection) ping() {
-	c.pushRequst(type_normal, nil, "PING")
+	req := NewRequest(nil, "PING")
+	c.pushRequst(req)
 }
 
 func (c *Connection) isShutDown() bool {
@@ -167,13 +159,6 @@ func (c *Connection) sendShutdownCtrl() {
 	c.pushRequst(req)
 }
 
-func (c *Connection) handleRequetList(f func(*Request)) {
-	for e := c.reqsPending.Front(); e != nil; e = e.Next() {
-		req := e.Value.(*Request)
-		f(req)
-	}
-}
-
 func (c *Connection) pushRequst(req... *Request) {
 	c.waitingChan <- req
 	for _, r := range req {
@@ -181,26 +166,18 @@ func (c *Connection) pushRequst(req... *Request) {
 	}
 }
 
-func (c *Connection) sendRequest(req *Request) {
+func (c *Connection) sendRequest(reqs []*Request) {
 	defer func() {
 		if err := recover(); err != nil {
 			e := err.(error)
-			req.err = e
+			for _, req := range reqs {
+				req.err = e
+				req.done()
+			}
 			c.recover(e)
 			fmt.Println(string(debug.Stack()))
-			fmt.Println(req.cmd, req.reqtype)
 		}
 	}()
-
-	if req.reqtype > type_ctrl_begin && req.reqtype < type_ctrl_end {
-		c.handleCtrl(req.reqtype)
-		return
-	}
-
-	if c.reqsPending.Len() == 0 {
-		c.sendTime = time.After(c.connSpec.CommandTimeout)
-	}
-	c.reqsPending.PushBack(req)
 
 	if c.isShutDown() {
 		panic(ErrNotRunning)
@@ -210,11 +187,7 @@ func (c *Connection) sendRequest(req *Request) {
 		panic(ErrNotConnected)
 	}
 
-	if c.reqsPending.Len() < c.connSpec.PipeliningSize {
-		return
-	}
-
-	c.doPipelining()
+	c.doPipelining(reqs)
 }
 
 func (c *Connection) pubsubWait(done chan *Request) (*Reply, error) {
@@ -232,22 +205,12 @@ func (c *Connection) pubsubSend(cmd string, args ...interface{}) error {
 
 func (c *Connection) recover(err error) {
 	//一定时间段内只尝试重连一次
-	if c.lastConnect.Add(c.connSpec.ReconnectInterval).After(time.Now()) {
+	if c.lastConnect.Add(c.ReconnectInterval).After(time.Now()) {
 		return
 	}
 
 	c.lastConnect = time.Now()
-	c.clear(err)
 	c.connect()
-}
-
-//清空等待的请求
-func (c *Connection) clear(err error) {
-	c.handleRequetList(func(r *Request) {
-		r.done()
-	})
-
-	c.reqsPending.Init()
 }
 
 func (c *Connection) handleCtrl(ctrltype requestType) {
@@ -259,7 +222,6 @@ func (c *Connection) handleCtrl(ctrltype requestType) {
 		if c.Conn != nil {
 			c.Conn.Close()
 		}
-		c.clear(ErrNotRunning)
 	default:
 
 	}
@@ -273,24 +235,21 @@ func (c *Connection) process() {
 		}
 
 		select {
-		case <-c.sendTime:
-			c.doPipelining()
-		case req := <-c.waitingChan:
-			c.sendRequest(req)
+		case reqs := <-c.waitingChan:
+			c.sendRequest(reqs)
 		case <-c.pingTick:
 			c.ping()
 		}
 	}
 }
 
-func (c *Connection) doPipelining() {
-	c.writeAllRequst()
-	c.readAllReply()
-	c.reqsPending.Init()
+func (c *Connection) doPipelining(reqs []*Request) {
+	c.writeAllRequst(reqs)
+	c.readAllReply(reqs)
 }
 
-func (c *Connection) writeAllRequst() {
-	c.handleRequetList(func(req *Request) {
+func (c *Connection) writeAllRequst(reqs []*Request) {
+	for _, req := range reqs {
 		switch req.reqtype {
 		case type_normal:
 			fallthrough
@@ -300,12 +259,12 @@ func (c *Connection) writeAllRequst() {
 		default:
 
 		}
-	})
+	}
 	c.writeBuffer.Flush()
 }
 
-func (c *Connection) readAllReply() {
-	c.handleRequetList(func(req *Request) {
+func (c *Connection) readAllReply(reqs []*Request) {
+	for _, req := range reqs {
 		switch req.reqtype {
 		case type_normal:
 			fallthrough
@@ -316,19 +275,19 @@ func (c *Connection) readAllReply() {
 		default:
 
 		}
-	})
-	c.handleRequetList(func(req *Request) {
+	}
+
+	for _, req := range reqs {
 		req.done()
-	})
+	}
 }
 
-func NewConnection(spec *ConnectionSpec) (conn *Connection) {
+func NewConnection(spec ConnectionSpec, c <-chan []*Request) (conn *Connection) {
 	conn = &Connection{
 		stop:        false,
 		connected:   false,
-		connSpec:    spec,
-		reqsPending: list.New(),
-		waitingChan: make(chan *Request, spec.WaitingChanSize),
+		ConnectionSpec:    spec,
+		waitingChan: c,
 		pingTick:    time.Tick(spec.PingInterval),
 		lastConnect: time.Now(),
 	}
