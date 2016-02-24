@@ -91,7 +91,7 @@ type Connection struct {
 	stop        bool
 
 	//等待送入发送线程的请求
-	waitingChan chan *Request
+	waitingChan chan []*Request
 
 	//等待发送的请求
 	reqsPending *list.List
@@ -158,11 +158,13 @@ func (c *Connection) isConnected() bool {
 }
 
 func (c *Connection) sendReconnectCtrl() {
-	c.pushRequst(type_ctrl_reconnect, nil, "")
+	req := NewRequestType(type_ctrl_reconnect, nil, "")
+	c.pushRequst(req)
 }
 
 func (c *Connection) sendShutdownCtrl() {
-	c.pushRequst(type_ctrl_shutdown, nil, "")
+	req := NewRequestType(type_ctrl_shutdown, nil, "")
+	c.pushRequst(req)
 }
 
 func (c *Connection) handleRequetList(f func(*Request)) {
@@ -172,26 +174,11 @@ func (c *Connection) handleRequetList(f func(*Request)) {
 	}
 }
 
-func (c *Connection) pushRequst(reqtype requestType, done chan *Request,
-	cmd string, args ...interface{}) (*Reply, error) {
-	req := new(Request)
-	req.reqtype = reqtype
-
-	if done != nil {
-		if cap(done) == 0 {
-			log.Panic("redis client: done channel is unbuffered")
-		}
-		req.Done = done
-	}
-
-	req.cmd = cmd
-	req.args = args
+func (c *Connection) pushRequst(req... *Request) {
 	c.waitingChan <- req
-	return req.GetReply()
-}
-
-func (c *Connection) call(done chan *Request, cmd string, args ...interface{}) (*Reply, error) {
-	return c.pushRequst(type_normal, done, cmd, args...)
+	for _, r := range req {
+		r.wait()
+	}
 }
 
 func (c *Connection) sendRequest(req *Request) {
@@ -231,11 +218,15 @@ func (c *Connection) sendRequest(req *Request) {
 }
 
 func (c *Connection) pubsubWait(done chan *Request) (*Reply, error) {
-	return c.pushRequst(type_only_wait, done, "")
+	req := NewRequestPubsubWait(done)
+	c.pushRequst(req)
+	return req.GetReply()
 }
 
 func (c *Connection) pubsubSend(cmd string, args ...interface{}) error {
-	_, err := c.pushRequst(type_only_send, nil, cmd, args...)
+	req := NewRequestPubsubSend(cmd, args...)
+	c.pushRequst(req)
+	_, err := req.GetReply()
 	return err
 }
 

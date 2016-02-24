@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"log"
 )
 
 var (
@@ -72,11 +73,43 @@ func (r *Request) done() {
 	}
 }
 
-func (r *Request) GetReply() (*Reply, error) {
+func (r *Request) wait() {
 	if r.Done != nil {
 		<-r.Done
 	}
+}
+
+func (r *Request) GetReply() (*Reply, error) {
 	return r.reply, r.err
+}
+
+func NewRequest(done chan *Request, cmd string, args ...interface{}) *Request {
+	return NewRequestType(type_normal, done, cmd, args...)
+}
+
+func NewRequestPubsubSend(cmd string, args ...interface{}) *Request {
+	return NewRequestType(type_only_send, nil, cmd, args...)
+}
+
+func NewRequestPubsubWait(done chan *Request) *Request {
+	return NewRequestType(type_only_wait, done, "")
+}
+
+func NewRequestType(reqtype requestType, done chan *Request, cmd string, args ...interface{}) *Request {
+	req := new(Request)
+	req.reqtype = reqtype
+
+	if done != nil {
+		if cap(done) == 0 {
+			log.Panic("redis client: done channel is unbuffered")
+		}
+		req.Done = done
+	}
+
+	req.cmd = cmd
+	req.args = args
+
+	return req
 }
 
 func readToCRLF(io *bufio.Reader) []byte {
