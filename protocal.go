@@ -61,55 +61,38 @@ const (
 type Request struct {
 	cmd     string
 	args    []interface{}
-	err     error
-	reply   *Reply
-	Done    chan *Request
+	Err     error
+	Reply   *Reply
 	reqtype requestType
 }
 
-func (r *Request) done() {
+func NewRequest(cmd string, args ...interface{}) *Request {
+	return NewRequestType(type_normal, cmd, args...)
+}
+
+func NewRequestType(reqtype requestType, cmd string, args ...interface{}) *Request {
+	req := new(Request)
+	req.reqtype = reqtype
+	req.cmd = cmd
+	req.args = args
+	return req
+}
+
+type requestsPkg struct {
+	requests	[]*Request
+	Done chan struct{}
+}
+
+func (r *requestsPkg) done() {
 	if r.Done != nil {
 		r.Done <- r
 	}
 }
 
-func (r *Request) wait() {
+func (r *requestsPkg) wait() {
 	if r.Done != nil {
 		<-r.Done
 	}
-}
-
-func (r *Request) GetReply() (*Reply, error) {
-	return r.reply, r.err
-}
-
-func NewRequest(done chan *Request, cmd string, args ...interface{}) *Request {
-	return NewRequestType(type_normal, done, cmd, args...)
-}
-
-func NewRequestPubsubSend(cmd string, args ...interface{}) *Request {
-	return NewRequestType(type_only_send, nil, cmd, args...)
-}
-
-func NewRequestPubsubWait(done chan *Request) *Request {
-	return NewRequestType(type_only_wait, done, "")
-}
-
-func NewRequestType(reqtype requestType, done chan *Request, cmd string, args ...interface{}) *Request {
-	req := new(Request)
-	req.reqtype = reqtype
-
-	if done != nil {
-		if cap(done) == 0 {
-			log.Panic("redis client: done channel is unbuffered")
-		}
-		req.Done = done
-	}
-
-	req.cmd = cmd
-	req.args = args
-
-	return req
 }
 
 func readToCRLF(io *bufio.Reader) []byte {

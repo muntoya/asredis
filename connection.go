@@ -2,7 +2,6 @@ package asredis
 
 import (
 	"bufio"
-	"container/list"
 	"errors"
 	"fmt"
 	"log"
@@ -32,7 +31,6 @@ const (
 	defaultTCPKeepalive                    = true
 	defaultIOReadBufSize     int           = 1024 * 256
 	defaultIOWriteBufSize    int           = 1024 * 256
-	defaultPipeliningSize    int           = 20
 	defaultCommandTimeout    time.Duration = time.Millisecond
 	defaultReconnectInterval time.Duration = time.Second
 	defaultPingInterval      time.Duration = time.Second
@@ -52,7 +50,6 @@ type ConnectionSpec struct {
 	TCPKeepalive      bool
 	IOReadBufSize     int
 	IOWriteBufSize    int
-	PipeliningSize    int
 	CommandTimeout    time.Duration
 	ReconnectInterval time.Duration
 	PingInterval      time.Duration
@@ -73,7 +70,6 @@ func DefaultConnectionSpec() *ConnectionSpec {
 		defaultTCPKeepalive,
 		defaultIOReadBufSize,
 		defaultIOWriteBufSize,
-		defaultPipeliningSize,
 		defaultCommandTimeout,
 		defaultReconnectInterval,
 		defaultPingInterval,
@@ -88,13 +84,15 @@ type Connection struct {
 	stop        bool
 
 	//等待送入发送线程的请求
-	waitingChan chan []*Request
+	waitingChan chan *requestsPkg
 
 	connected bool
 	err       error
 	pingTick  <-chan time.Time
 
 	lastConnect time.Time
+
+	pubsubChan chan struct{}
 }
 
 func createTCPConnection(s *ConnectionSpec) (net.Conn, error) {
@@ -117,7 +115,7 @@ func (c *Connection) connect() {
 	c.connected = false
 
 	var err error
-	c.Conn, err = createTCPConnection(*c.ConnectionSpec)
+	c.Conn, err = createTCPConnection(&c.ConnectionSpec)
 	if err != nil {
 		c.err = err
 		log.Printf("can't connect to redis %v, error:%v", c.Host, err)
@@ -137,8 +135,8 @@ func (c *Connection) close() {
 }
 
 func (c *Connection) ping() {
-	req := NewRequest(nil, "PING")
-	c.pushRequst(req)
+	req := NewRequest("PING")
+	c.pushRequst(nil, req)
 }
 
 func (c *Connection) isShutDown() bool {
@@ -150,30 +148,36 @@ func (c *Connection) isConnected() bool {
 }
 
 func (c *Connection) sendReconnectCtrl() {
-	req := NewRequestType(type_ctrl_reconnect, nil, "")
-	c.pushRequst(req)
+	req := NewRequestType(type_ctrl_reconnect, "")
+	c.pushRequst(nil, req)
 }
 
 func (c *Connection) sendShutdownCtrl() {
-	req := NewRequestType(type_ctrl_shutdown, nil, "")
-	c.pushRequst(req)
+	req := NewRequestType(type_ctrl_shutdown, "")
+	c.pushRequst(nil, req)
 }
 
-func (c *Connection) pushRequst(req... *Request) {
-	c.waitingChan <- req
-	for _, r := range req {
-		r.wait()
+func (c *Connection) pushRequst(done chan struct{}, req ...*Request) {
+	reqs := &requestsPkg{req, done}
+	if done != nil {
+		if cap(done) == 0 {
+			log.Panic("redis client: done channel is unbuffered")
+		}
+		reqs.Done = done
 	}
+
+	c.waitingChan <- reqs
+	reqs.wait()
 }
 
-func (c *Connection) sendRequest(reqs []*Request) {
+func (c *Connection) sendRequest(reqs *requestsPkg) {
 	defer func() {
 		if err := recover(); err != nil {
 			e := err.(error)
-			for _, req := range reqs {
-				req.err = e
-				req.done()
+			for _, req := range reqs.requests {
+				req.Err = e
 			}
+			reqs.done()
 			c.recover(e)
 			fmt.Println(string(debug.Stack()))
 		}
@@ -190,17 +194,14 @@ func (c *Connection) sendRequest(reqs []*Request) {
 	c.doPipelining(reqs)
 }
 
-func (c *Connection) pubsubWait(done chan *Request) (*Reply, error) {
-	req := NewRequestPubsubWait(done)
-	c.pushRequst(req)
-	return req.GetReply()
+func (c *Connection) pubsubWait() {
+	req := NewRequestType(type_only_wait, "")
+	c.pushRequst(c.pubsubChan, req)
 }
 
-func (c *Connection) pubsubSend(cmd string, args ...interface{}) error {
-	req := NewRequestPubsubSend(cmd, args...)
-	c.pushRequst(req)
-	_, err := req.GetReply()
-	return err
+func (c *Connection) pubsubSend(cmd string, args ...interface{}) {
+	req := NewRequestType(type_only_send, cmd, args...)
+	c.pushRequst(nil, req)
 }
 
 func (c *Connection) recover(err error) {
@@ -243,13 +244,13 @@ func (c *Connection) process() {
 	}
 }
 
-func (c *Connection) doPipelining(reqs []*Request) {
+func (c *Connection) doPipelining(reqs *requestsPkg) {
 	c.writeAllRequst(reqs)
 	c.readAllReply(reqs)
 }
 
-func (c *Connection) writeAllRequst(reqs []*Request) {
-	for _, req := range reqs {
+func (c *Connection) writeAllRequst(reqs *requestsPkg) {
+	for _, req := range reqs.requests {
 		switch req.reqtype {
 		case type_normal:
 			fallthrough
@@ -263,33 +264,32 @@ func (c *Connection) writeAllRequst(reqs []*Request) {
 	c.writeBuffer.Flush()
 }
 
-func (c *Connection) readAllReply(reqs []*Request) {
-	for _, req := range reqs {
+func (c *Connection) readAllReply(reqs *requestsPkg) {
+	for _, req := range reqs.requests {
 		switch req.reqtype {
 		case type_normal:
 			fallthrough
 		case type_only_wait:
 			reply := readReply(c.readBuffer)
-			req.reply = reply
+			req.Reply = reply
 		case type_only_send:
 		default:
 
 		}
 	}
 
-	for _, req := range reqs {
-		req.done()
-	}
+	reqs.done()
 }
 
-func NewConnection(spec ConnectionSpec, c <-chan []*Request) (conn *Connection) {
+func NewConnection(spec ConnectionSpec, c chan *requestsPkg) (conn *Connection) {
 	conn = &Connection{
-		stop:        false,
-		connected:   false,
-		ConnectionSpec:    spec,
-		waitingChan: c,
-		pingTick:    time.Tick(spec.PingInterval),
-		lastConnect: time.Now(),
+		stop:           false,
+		connected:      false,
+		ConnectionSpec: spec,
+		waitingChan:    c,
+		pingTick:       time.Tick(spec.PingInterval),
+		lastConnect:    time.Now(),
+		pubsubChan:		make(chan struct{}, 1),
 	}
 
 	conn.connect()
