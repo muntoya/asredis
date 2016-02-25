@@ -2,13 +2,13 @@ package asredis
 
 import (
 //	"time"
-	"sync/atomic"
 	//"fmt"
 )
 
 const (
-	defaultPoolSize int32 = 3
-	defaultChanSize int32 = 500
+	defaultPoolSize int32 = 5
+	defaultChanSize int32 = 80
+	defaultQueueSize int32 = 40
 )
 
 type PoolSpec struct {
@@ -17,7 +17,11 @@ type PoolSpec struct {
 	//连接个数
 	PoolSize	int32
 
+	//全部预存的channel数量
 	ChanSize	int32
+
+	//发送请求到连接的队列长度
+	QueueSize	int32
 }
 
 func DefaultPoolSpec() *PoolSpec {
@@ -25,19 +29,20 @@ func DefaultPoolSpec() *PoolSpec {
 		ConnectionSpec: DefaultConnectionSpec(),
 		PoolSize:	defaultPoolSize,
 		ChanSize:	defaultChanSize,
+		QueueSize:	defaultQueueSize,
 	}
 }
 
 // 用来保存连接至单个redis进程的多个连接
 type Pool struct {
 	conns     []*Connection
-	poolSpec  *PoolSpec
-	replyChan chan chan *Request
-	msgID     int32
+	PoolSpec
+	replyChan chan struct{}
+	queueChan chan *requestsPkg
 }
 
 func (p *Pool) ConnsCreate() int32 {
-	return p.poolSpec.PoolSize
+	return p.PoolSize
 }
 
 func (p *Pool) ConnsFail() int32 {
@@ -50,14 +55,11 @@ func (p *Pool) ConnsFail() int32 {
 	return i
 }
 
-func (p *Pool) Exec(cmd string, args ...interface{}) (reply *Reply, err error) {
-	msgID := atomic.AddInt32(&p.msgID, 1)
-	connID := msgID % p.poolSpec.PoolSize
-	conn := p.conns[connID]
+func (p *Pool) Exec(req... *Request) {
 	c := <-p.replyChan
-	reply, err = conn.call(c, cmd, args...)
+	reqPkg := requestsPkg{req, c}
+	reqPkg.wait()
 	p.replyChan <- c
-	return
 }
 
 func (p *Pool) Close() {
@@ -87,18 +89,20 @@ func (p *Pool) Eval(l *LuaEval, args ...interface{}) (reply *Reply, err error) {
 
 func NewPool(spec *PoolSpec) *Pool {
 	conns := make([]*Connection, spec.PoolSize)
-	var i int32 = 0
-	for ; i < spec.PoolSize; i++ {
-		conns[i] = NewConnection(spec.ConnectionSpec)
+	queueChan := make(chan *requestsPkg, spec.ChanSize)
+
+	for i := int32(0); i < spec.PoolSize; i++ {
+		conns[i] = NewConnection(spec.ConnectionSpec, queueChan)
 	}
 
 	pool := &Pool{
 		conns:    conns,
-		poolSpec:   spec,
-		replyChan:  make(chan chan *Request, spec.ChanSize),
+		PoolSpec:   *spec,
+		replyChan:  make(chan struct{}, spec.ChanSize),
+		queueChan:	queueChan,
 	}
 
-	for i = 0; i < spec.ChanSize; i++ {
+	for i := int32(0); i < spec.ChanSize; i++ {
 		pool.replyChan <- make(chan *Request, 1)
 	}
 
