@@ -56,14 +56,14 @@ type ClusterInfo struct {
 	myEpoch       int
 }
 
-func (c *Cluster) Exec(cmd string, args ...interface{}) (reply *Reply, err error) {
+func (c *Cluster) Call(req... *Request) (reply *Reply, err error) {
 	key := fmt.Sprint(args[0])
 	pools, err := c.getPools(key)
 	if err != nil {
 		return
 	}
 
-	return pools[0].Exec(cmd, args...)
+	return pools[0].Call(req...)
 }
 
 //不使用hash
@@ -74,7 +74,7 @@ func (c *Cluster) ExecN(cmd string, args ...interface{}) (reply *Reply, err erro
 		return
 	}
 
-	return pools[0].Exec(cmd, args...)
+	return pools[0].Call(cmd, args...)
 }
 
 func (c *Cluster) getPools(key string) (pools []*Pool, err error) {
@@ -155,7 +155,7 @@ func (c *Cluster) getPoolsInfo() (pool *Pool, err error) {
 }
 
 func getSlotsInfo(pool *Pool) (slotsArray []*ClusterSlots) {
-	r, err := pool.Exec("CLUSTER", "slots")
+	r, err := pool.Call("CLUSTER", "slots")
 	checkError(err)
 
 	if r.Type != ARRAY {
@@ -183,7 +183,7 @@ func getSlotsInfo(pool *Pool) (slotsArray []*ClusterSlots) {
 }
 
 func getClusterInfo(pool *Pool) (info *ClusterInfo) {
-	r, err := pool.Exec("CLUSTER", "info")
+	r, err := pool.Call("CLUSTER", "info")
 	checkError(err)
 
 	infoStr := r.Value.(string)
@@ -218,7 +218,7 @@ func getClusterInfo(pool *Pool) (info *ClusterInfo) {
 }
 
 func getClusterNodes(pool *Pool) {
-	r, err := pool.Exec("CLUSTER", "nodes")
+	r, err := pool.Call("CLUSTER", "nodes")
 	fmt.Println(r, err)
 }
 

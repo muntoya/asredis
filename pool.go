@@ -55,11 +55,16 @@ func (p *Pool) ConnsFail() int32 {
 	return i
 }
 
-func (p *Pool) Exec(req... *Request) {
+func (p *Pool) Call(req... *Request) {
 	c := <-p.replyChan
 	reqPkg := requestsPkg{req, c}
+	p.queueChan <- reqPkg
 	reqPkg.wait()
 	p.replyChan <- c
+}
+
+func (p *Pool) Go(reqPkg *requestsPkg) {
+	p.queueChan <- reqPkg
 }
 
 func (p *Pool) Close() {
@@ -74,7 +79,7 @@ func (p *Pool) Close() {
 }
 
 func (p *Pool) Eval(l *LuaEval, args ...interface{}) (reply *Reply, err error) {
-	reply, err = p.Exec("EVALSHA", joinArgs(l.hash, args)...)
+	reply, err = p.Call("EVALSHA", joinArgs(l.hash, args)...)
 
 	if reply.Type == ERROR {
 		var content string
@@ -82,7 +87,7 @@ func (p *Pool) Eval(l *LuaEval, args ...interface{}) (reply *Reply, err error) {
 		if err != nil {
 			return
 		}
-		reply, err = p.Exec("EVAL", joinArgs(content, args)...)
+		reply, err = p.Call("EVAL", joinArgs(content, args)...)
 	}
 	return
 }

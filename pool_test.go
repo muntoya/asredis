@@ -15,12 +15,12 @@ func TestPool(t *testing.T) {
 	spec := DefaultPoolSpec()
 	pool := NewPool(spec)
 	for i := 0; i < 100; i++ {
-		_, err := pool.Exec("set", fmt.Sprintf("int%d", i), i)
+		_, err := pool.Call("set", fmt.Sprintf("int%d", i), i)
 		assert.Equal(t, err, nil)
 	}
 
 	for i := 0; i < 100; i++ {
-		reply, err := pool.Exec("get", fmt.Sprintf("int%d", i))
+		reply, err := pool.Call("get", fmt.Sprintf("int%d", i))
 		assert.Equal(t, reply.Value, strconv.Itoa(i))
 		assert.Equal(t, err, nil)
 	}
@@ -39,7 +39,7 @@ func BenchmarkSet(b *testing.B) {
 		go func(n int) {
 			key := fmt.Sprintf("int%d", i)
 			for t := 0; t < times; t++ {
-				_, e := pool.Exec("set", key, n)
+				_, e := pool.Call("set", key, n)
 				if e != nil {
 					panic(e)
 				}
