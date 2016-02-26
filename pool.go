@@ -55,9 +55,9 @@ func (p *Pool) ConnsFail() int32 {
 	return i
 }
 
-func (p *Pool) Call(req... *Request) {
+func (p *Pool) Call(reqs... *Request) {
 	c := <-p.replyChan
-	reqPkg := requestsPkg{req, c}
+	reqPkg := requestsPkg{reqs, c}
 	p.queueChan <- reqPkg
 	reqPkg.wait()
 	p.replyChan <- c

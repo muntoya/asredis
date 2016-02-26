@@ -157,27 +157,27 @@ func (c *Connection) sendShutdownCtrl() {
 	c.pushRequst(nil, req)
 }
 
-func (c *Connection) pushRequst(done chan struct{}, req ...*Request) {
-	reqs := &requestsPkg{req, done}
+func (c *Connection) pushRequst(done chan struct{}, reqs ...*Request) {
+	reqsPkg := &requestsPkg{reqs, done}
 	if done != nil {
 		if cap(done) == 0 {
 			log.Panic("redis client: done channel is unbuffered")
 		}
-		reqs.Done = done
+		reqsPkg.Done = done
 	}
 
 	c.waitingChan <- reqs
-	reqs.wait()
+	reqsPkg.wait()
 }
 
-func (c *Connection) sendRequest(reqs *requestsPkg) {
+func (c *Connection) sendRequest(reqsPkg *requestsPkg) {
 	defer func() {
 		if err := recover(); err != nil {
 			e := err.(error)
-			for _, req := range reqs.requests {
+			for _, req := range reqsPkg.requests {
 				req.Err = e
 			}
-			reqs.done()
+			reqsPkg.done()
 			c.recover(e)
 			fmt.Println(string(debug.Stack()))
 		}
@@ -191,7 +191,7 @@ func (c *Connection) sendRequest(reqs *requestsPkg) {
 		panic(ErrNotConnected)
 	}
 
-	c.doPipelining(reqs)
+	c.doPipelining(reqsPkg)
 }
 
 func (c *Connection) pubsubWait() {

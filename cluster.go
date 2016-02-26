@@ -17,8 +17,6 @@ var (
 
 const (
 	numSlots = 16384
-	numConn  = 10
-	numChan  = 20
 )
 
 type nodeAddr struct {
@@ -26,7 +24,7 @@ type nodeAddr struct {
 	port	int16
 }
 
-type mapping [numSlots][]*Pool
+type mapping [numSlots]*Pool
 
 type ClusterSpec struct {
 	PoolSpec
@@ -63,28 +61,35 @@ type ClusterInfo struct {
 	myEpoch       int
 }
 
-func (c *Cluster) Call(req... *Request) (reply *Reply, err error) {
-	key := fmt.Sprint(args[0])
-	pools, err := c.getPools(key)
-	if err != nil {
-		return
+type requestListMap map[*Pool] []*Request
+
+func (c *Cluster) Call(reqs... *Request) {
+	m := requestListMap{}
+	for _, req := range reqs {
+		key := fmt.Sprint(req.args[0])
+		pool, err := c.getPools(key)
+		if err != nil {
+			req.Err = err
+		} else {
+			m[pool] = append(m[pool], req)
+		}
 	}
 
-	return pools[0].Call(req...)
+	for k, v := range m {
+		k.Go(v...)
+	}
+
+	for k := range m {
+		k.Go(v...)
+	}
 }
 
 //不使用hash
-func (c *Cluster) ExecN(cmd string, args ...interface{}) (reply *Reply, err error) {
-	key := fmt.Sprint(args[0])
-	pools, err := c.getPools(key)
-	if err != nil {
-		return
-	}
-
-	return pools[0].Call(cmd, args...)
+func (c *Cluster) CallN(reqs... *Request) {
+	c.pools[0].Call(reqs...)
 }
 
-func (c *Cluster) getPools(key string) (pools []*Pool, err error) {
+func (c *Cluster) getPools(key string) (pools *Pool, err error) {
 	v := CRC16([]byte(key)) % numSlots
 	pools = c.slotsMap[v]
 	if len(pools) == 0 {
@@ -128,7 +133,7 @@ func (c *Cluster) updateSlots() (err error) {
 	c.slotsMap = mapping{}
 	for _, slots := range slotsArray {
 
-		var pools []*Pool
+		var pool *Pool
 		pool, ok := c.pools[slots.node]
 		if !ok {
 			spec := c.PoolSpec
@@ -137,10 +142,9 @@ func (c *Cluster) updateSlots() (err error) {
 			pool = NewPool(&spec)
 			c.pools[slots.node] = pool
 		}
-		pools = append(pools, pool)
 
 		for i := slots.begin; i <= slots.end; i++ {
-			c.slotsMap[i] = pools
+			c.slotsMap[i] = pool
 		}
 	}
 	fmt.Println("pools", c.pools)
