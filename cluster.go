@@ -28,10 +28,17 @@ type nodeAddr struct {
 
 type mapping [numSlots][]*Pool
 
+type ClusterSpec struct {
+	PoolSpec
+}
+
+func DefaultClusterSpec() *ClusterSpec {
+	return &ClusterSpec{PoolSpec: *DefaultPoolSpec()}
+}
+
 type Cluster struct {
 	mutex sync.RWMutex
-
-	spec *PoolSpec
+	ClusterSpec
 
 	slotsMap mapping
 	pools    map[nodeAddr]*Pool
@@ -41,7 +48,7 @@ type Cluster struct {
 type ClusterSlots struct {
 	begin uint16
 	end   uint16
-	nodes []nodeAddr
+	node  nodeAddr
 }
 
 type ClusterInfo struct {
@@ -101,7 +108,7 @@ func (c *Cluster) updateSlots() (err error) {
 	}()
 
 	var pool *Pool
-	pool, err = c.getPoolsInfo()
+	pool, err = c.getTempPool()
 	if err != nil {
 		return
 	}
@@ -122,17 +129,15 @@ func (c *Cluster) updateSlots() (err error) {
 	for _, slots := range slotsArray {
 
 		var pools []*Pool
-		for _, node := range slots.nodes {
-			pool, ok := c.pools[node]
-			if !ok {
-				spec := *c.spec
-				spec.Host = node.host
-				spec.Port = node.port
-				pool = NewPool(&spec)
-				c.pools[node] = pool
-			}
-			pools = append(pools, pool)
+		pool, ok := c.pools[slots.node]
+		if !ok {
+			spec := c.PoolSpec
+			spec.Host = slots.node.host
+			spec.Port = slots.node.port
+			pool = NewPool(&spec)
+			c.pools[slots.node] = pool
 		}
+		pools = append(pools, pool)
 
 		for i := slots.begin; i <= slots.end; i++ {
 			c.slotsMap[i] = pools
@@ -144,8 +149,8 @@ func (c *Cluster) updateSlots() (err error) {
 	return
 }
 
-func (c *Cluster) getPoolsInfo() (pool *Pool, err error) {
-	pool = NewPool(c.spec)
+func (c *Cluster) getTempPool() (pool *Pool, err error) {
+	pool = NewPool(c.PoolSpec)
 
 	if pool == nil || pool.ConnsFail() > 0 {
 		err = ErrClusterNoService
@@ -155,26 +160,25 @@ func (c *Cluster) getPoolsInfo() (pool *Pool, err error) {
 }
 
 func getSlotsInfo(pool *Pool) (slotsArray []*ClusterSlots) {
-	r, err := pool.Call("CLUSTER", "slots")
-	checkError(err)
+	req := NewRequest("CLUSTER", "slots")
+	pool.Call(req)
+	checkError(req.Err)
+	reply := req.Reply
 
-	if r.Type != ARRAY {
+	if reply.Type != ARRAY {
 		panic(ErrSlotsInfo)
 	}
 
-	for _, s := range r.Array {
+	for _, s := range reply.Array {
 		info := s.([]interface{})
 		slots := &ClusterSlots{}
 
 		slots.begin = uint16(info[0].(int))
 		slots.end = uint16(info[1].(int))
 
+		//只取master的slots,方便实现
 		addrs := info[2].([]interface{})
-
-		for i := 0; i < len(addrs); i += 2 {
-			node := nodeAddr{addrs[i].(string), int16(addrs[i + 1].(int))}
-			slots.nodes = append(slots.nodes, node)
-		}
+		slots.node = nodeAddr{addrs[0].(string), int16(addrs[1].(int))}
 
 		slotsArray = append(slotsArray, slots)
 	}
@@ -183,10 +187,12 @@ func getSlotsInfo(pool *Pool) (slotsArray []*ClusterSlots) {
 }
 
 func getClusterInfo(pool *Pool) (info *ClusterInfo) {
-	r, err := pool.Call("CLUSTER", "info")
-	checkError(err)
+	req := NewRequest("CLUSTER", "info")
+	pool.Call(req)
+	checkError(req.Err)
+	reply := req.Reply
 
-	infoStr := r.Value.(string)
+	infoStr := reply.Value.(string)
 	infoStr = strings.Trim(infoStr, "\r\n ")
 	attrs := strings.Split(infoStr, "\r\n")
 
@@ -218,17 +224,18 @@ func getClusterInfo(pool *Pool) (info *ClusterInfo) {
 }
 
 func getClusterNodes(pool *Pool) {
-	r, err := pool.Call("CLUSTER", "nodes")
-	fmt.Println(r, err)
+	req := NewRequest("CLUSTER", "nodes")
+	pool.Call(req)
+	fmt.Println(req.Reply, req.Err)
 }
 
 func (c *Cluster) checkCluster() {
 
 }
 
-func NewCluster(spec *PoolSpec) (cluster *Cluster, err error) {
+func NewCluster(spec *ClusterSpec) (cluster *Cluster, err error) {
 	cluster = &Cluster{
-		spec: spec,
+		ClusterSpec: *spec,
 		pools: make(map[nodeAddr]*Pool),
 	}
 
