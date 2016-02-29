@@ -75,12 +75,14 @@ func (c *Cluster) Call(reqs... *Request) {
 		}
 	}
 
+	//处理多个请求包等待
+	var l []*requestsPkg
 	for k, v := range m {
-		k.Go(v...)
+		l  = append(l, k.Go(v...))
 	}
 
-	for k := range m {
-		k.Go(v...)
+	for k, v := range m {
+
 	}
 }
 

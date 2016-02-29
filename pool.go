@@ -63,8 +63,16 @@ func (p *Pool) Call(reqs... *Request) {
 	p.replyChan <- c
 }
 
-func (p *Pool) Go(reqPkg *requestsPkg) {
+func (p *Pool) Go(reqs... *Request) (*requestsPkg) {
+	c := <-p.replyChan
+	reqPkg := requestsPkg{reqs, c}
 	p.queueChan <- reqPkg
+	return reqPkg
+}
+
+func (p *Pool) Wait(reqPkg *requestsPkg) {
+	reqPkg.wait()
+	p.replyChan <- reqPkg.Done
 }
 
 func (p *Pool) Close() {
