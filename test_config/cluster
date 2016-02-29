@@ -14,7 +14,7 @@ start()
 stop()
 {
     echo "stop redis server"
-    killall redis-server
+    ps ax|grep "redis-server"|awk '{print $1}'|xargs kill 2>/dev/null
 }
 
 init()
