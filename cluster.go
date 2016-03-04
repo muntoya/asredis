@@ -88,13 +88,13 @@ func (c *Cluster) Call(reqs... *Request) {
 
 //不使用hash
 func (c *Cluster) CallN(reqs... *Request) {
-	c.pools[0].Call(reqs...)
+	//c.pools[0].Call(reqs...)
 }
 
-func (c *Cluster) getPools(key string) (pools *Pool, err error) {
+func (c *Cluster) getPools(key string) (pool *Pool, err error) {
 	v := CRC16([]byte(key)) % numSlots
-	pools = c.slotsMap[v]
-	if len(pools) == 0 {
+	pool, ok := c.slotsMap[v]
+	if !ok {
 		err = ErrNoSlot
 	}
 	return
