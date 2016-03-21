@@ -93,8 +93,8 @@ func (c *Cluster) CallN(reqs... *Request) {
 
 func (c *Cluster) getPools(key string) (pool *Pool, err error) {
 	v := CRC16([]byte(key)) % numSlots
-	pool, ok := c.slotsMap[v]
-	if !ok {
+	pool = c.slotsMap[v]
+	if pool == nil {
 		err = ErrNoSlot
 	}
 	return
@@ -156,7 +156,7 @@ func (c *Cluster) updateSlots() (err error) {
 }
 
 func (c *Cluster) getTempPool() (pool *Pool, err error) {
-	pool = NewPool(c.PoolSpec)
+	pool = NewPool(&c.PoolSpec)
 
 	if pool == nil || pool.ConnsFail() > 0 {
 		err = ErrClusterNoService
