@@ -178,16 +178,6 @@ func (c *Connection) sendRequest(reqsPkg *requestsPkg) {
 	c.doPipelining(reqsPkg)
 }
 
-func (c *Connection) pubsubWait() {
-	req := NewRequestType(type_only_wait, "")
-	c.pushRequst(c.pubsubChan, req)
-}
-
-func (c *Connection) pubsubSend(cmd string, args ...interface{}) {
-	req := NewRequestType(type_only_send, cmd, args...)
-	c.pushRequst(nil, req)
-}
-
 func (c *Connection) recover(err error) {
 	//一定时间段内只尝试重连一次
 	if c.lastConnect.Add(c.ReconnectInterval).After(time.Now()) {
@@ -198,7 +188,7 @@ func (c *Connection) recover(err error) {
 	c.connect()
 }
 
-func (c *Connection) handleCtrl(ctrltype requestType) {
+func (c *Connection) handleCtrl(ctrltype ctrlType) {
 	switch ctrltype {
 	case type_ctrl_reconnect:
 		c.recover(ErrNotConnected)
@@ -220,6 +210,8 @@ func (c *Connection) process() {
 		}
 
 		select {
+		case ctrl := c.ctrlChan:
+			c.handleCtrl(ctrl)
 		case reqs := <-c.waitingChan:
 			c.sendRequest(reqs)
 		case <-c.pingTick:

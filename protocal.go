@@ -61,20 +61,36 @@ type Request struct {
 	Reply   *Reply
 }
 
+func NewRequstPkg(done bool) (*requestsPkg){
+	r := &requestsPkg{}
+	if done {
+		r.d = make(chan struct{}, 1)
+	}
+	return r
+}
+
 type requestsPkg struct {
-	requests	[]*Request
-	Done chan struct{}
+	requests []*Request
+	d        chan struct{}
+}
+
+func (r *requestsPkg) Add(cmd string, args...string) {
+	req := &Request{
+		cmd: cmd,
+		args: args,
+	}
+	r.requests = append(r.requests, req)
 }
 
 func (r *requestsPkg) done() {
-	if r.Done != nil {
-		r.Done <- r
+	if r.d != nil {
+		r.d <- r
 	}
 }
 
 func (r *requestsPkg) wait() {
-	if r.Done != nil {
-		<-r.Done
+	if r.d != nil {
+		<-r.d
 	}
 }
 

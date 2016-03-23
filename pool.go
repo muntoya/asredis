@@ -72,7 +72,7 @@ func (p *Pool) Go(reqs... *Request) (*requestsPkg) {
 
 func (p *Pool) Wait(reqPkg *requestsPkg) {
 	reqPkg.wait()
-	p.replyChan <- reqPkg.Done
+	p.replyChan <- reqPkg.d
 }
 
 func (p *Pool) Close() {
