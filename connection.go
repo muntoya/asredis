@@ -84,7 +84,7 @@ type Connection struct {
 	stop        bool
 
 	//等待送入发送线程的请求
-	waitingChan chan *requestsPkg
+	waitingChan chan *RequestsPkg
 
 	//控制消息
 	ctrlChan chan ctrlType
@@ -136,6 +136,9 @@ func (c *Connection) close() {
 }
 
 func (c *Connection) ping() {
+	r := NewRequstPkg()
+	r.Add("PING")
+	c.doPipelining(r)
 }
 
 func (c *Connection) isShutDown() bool {
@@ -154,7 +157,7 @@ func (c *Connection) sendShutdownCtrl() {
 	c.ctrlChan <- type_ctrl_shutdown
 }
 
-func (c *Connection) sendRequest(reqsPkg *requestsPkg) {
+func (c *Connection) sendRequest(reqsPkg *RequestsPkg) {
 	defer func() {
 		if err := recover(); err != nil {
 			e := err.(error)
@@ -220,26 +223,26 @@ func (c *Connection) process() {
 	}
 }
 
-func (c *Connection) doPipelining(reqs *requestsPkg) {
+func (c *Connection) doPipelining(reqs *RequestsPkg) {
 	c.writeAllRequst(reqs)
 	c.readAllReply(reqs)
 }
 
-func (c *Connection) writeAllRequst(reqs *requestsPkg) {
+func (c *Connection) writeAllRequst(reqs *RequestsPkg) {
 	for _, req := range reqs.requests {
 		writeReqToBuf(c.writeBuffer, req)
 	}
 	c.writeBuffer.Flush()
 }
 
-func (c *Connection) readAllReply(reqs *requestsPkg) {
+func (c *Connection) readAllReply(reqs *RequestsPkg) {
 	for _, req := range reqs.requests {
 		req.Reply = readReply(c.readBuffer)
 	}
 	reqs.done()
 }
 
-func NewConnection(spec ConnectionSpec, c chan *requestsPkg) (conn *Connection) {
+func NewConnection(spec ConnectionSpec, c chan *RequestsPkg) (conn *Connection) {
 	conn = &Connection{
 		stop:           false,
 		connected:      false,

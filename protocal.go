@@ -4,8 +4,8 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"strconv"
 	"log"
+	"strconv"
 )
 
 var (
@@ -48,47 +48,46 @@ type ctrlType byte
 
 const (
 	//control command
-	type_ctrl_begin ctrlType	= iota //begin标记
+	type_ctrl_begin ctrlType = iota //begin标记
 	type_ctrl_reconnect
 	type_ctrl_shutdown
-	type_ctrl_end	//end标记
+	type_ctrl_end //end标记
 )
 
 type Request struct {
-	cmd     string
-	args    []interface{}
-	Err     error
-	Reply   *Reply
+	cmd   string
+	args  []interface{}
+	Err   error
+	Reply *Reply
 }
 
-func NewRequstPkg(done bool) (*requestsPkg){
-	r := &requestsPkg{}
-	if done {
-		r.d = make(chan struct{}, 1)
+func NewRequstPkg() *RequestsPkg {
+	r := &RequestsPkg{
+		d: make(chan struct{}, 1),
 	}
 	return r
 }
 
-type requestsPkg struct {
+type RequestsPkg struct {
 	requests []*Request
 	d        chan struct{}
 }
 
-func (r *requestsPkg) Add(cmd string, args...string) {
+func (r *RequestsPkg) Add(cmd string, args ...string) {
 	req := &Request{
-		cmd: cmd,
+		cmd:  cmd,
 		args: args,
 	}
 	r.requests = append(r.requests, req)
 }
 
-func (r *requestsPkg) done() {
+func (r *RequestsPkg) done() {
 	if r.d != nil {
 		r.d <- r
 	}
 }
 
-func (r *requestsPkg) wait() {
+func (r *RequestsPkg) wait() {
 	if r.d != nil {
 		<-r.d
 	}

@@ -7,7 +7,6 @@ import (
 
 const (
 	defaultPoolSize int32 = 5
-	defaultChanSize int32 = 80
 	defaultQueueSize int32 = 40
 )
 
@@ -17,9 +16,6 @@ type PoolSpec struct {
 	//连接个数
 	PoolSize	int32
 
-	//全部预存的channel数量
-	ChanSize	int32
-
 	//发送请求到连接的队列长度
 	QueueSize	int32
 }
@@ -28,7 +24,6 @@ func DefaultPoolSpec() *PoolSpec {
 	return &PoolSpec{
 		ConnectionSpec: DefaultConnectionSpec(),
 		PoolSize:	defaultPoolSize,
-		ChanSize:	defaultChanSize,
 		QueueSize:	defaultQueueSize,
 	}
 }
@@ -38,7 +33,7 @@ type Pool struct {
 	conns     []*Connection
 	PoolSpec
 	replyChan chan struct{}
-	queueChan chan *requestsPkg
+	queueChan chan *RequestsPkg
 }
 
 func (p *Pool) ConnsCreate() int32 {
@@ -57,20 +52,20 @@ func (p *Pool) ConnsFail() int32 {
 
 func (p *Pool) Call(reqs... *Request) {
 	c := <-p.replyChan
-	reqPkg := requestsPkg{reqs, c}
+	reqPkg := RequestsPkg{reqs, c}
 	p.queueChan <- reqPkg
 	reqPkg.wait()
 	p.replyChan <- c
 }
 
-func (p *Pool) Go(reqs... *Request) (*requestsPkg) {
+func (p *Pool) Go(reqs... *Request) (*RequestsPkg) {
 	c := <-p.replyChan
-	reqPkg := requestsPkg{reqs, c}
+	reqPkg := RequestsPkg{reqs, c}
 	p.queueChan <- reqPkg
 	return reqPkg
 }
 
-func (p *Pool) Wait(reqPkg *requestsPkg) {
+func (p *Pool) Wait(reqPkg *RequestsPkg) {
 	reqPkg.wait()
 	p.replyChan <- reqPkg.d
 }
@@ -102,7 +97,7 @@ func (p *Pool) Eval(l *LuaEval, args ...interface{}) (reply *Reply, err error) {
 
 func NewPool(spec *PoolSpec) *Pool {
 	conns := make([]*Connection, spec.PoolSize)
-	queueChan := make(chan *requestsPkg, spec.ChanSize)
+	queueChan := make(chan *RequestsPkg, spec.QueueSize)
 
 	for i := int32(0); i < spec.PoolSize; i++ {
 		conns[i] = NewConnection(spec.ConnectionSpec, queueChan)
@@ -111,12 +106,7 @@ func NewPool(spec *PoolSpec) *Pool {
 	pool := &Pool{
 		conns:    conns,
 		PoolSpec:   *spec,
-		replyChan:  make(chan struct{}, spec.ChanSize),
 		queueChan:	queueChan,
-	}
-
-	for i := int32(0); i < spec.ChanSize; i++ {
-		pool.replyChan <- make(chan *Request, 1)
 	}
 
 	return pool

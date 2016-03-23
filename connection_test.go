@@ -12,13 +12,17 @@ import (
 func TestConnection(t *testing.T) {
 	//t.Skip("skip connection test")
 	spec := DefaultConnectionSpec()
-	conn := NewConnection(spec)
+	reqChan := make(chan *RequestsPkg, 10)
+	conn := NewConnection(*spec, reqChan)
 	defer conn.close()
 
-	c := make(chan *Request, 1)
-	reply, err := conn.call(c, "SET", "int", 2)
-	if err != nil {
-		t.Fatal(err)
+	r := NewRequstPkg()
+	r.Add("SET", "int", 2)
+	reqChan <- r
+	r.wait()
+	reply := r.requests[0].Reply
+	if r.requests[0].Err != nil {
+		t.Fatal(r.requests[0].Err)
 	} else {
 		t.Log(reply.Type, reply.Value)
 	}

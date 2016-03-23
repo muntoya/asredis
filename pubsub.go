@@ -129,7 +129,7 @@ func (p *PubsubClient) GetMessage(timeout time.Duration) *SubMsg {
 
 func (c *PubsubClient) pushRequst(reqs ...*Request) {
 	done := make(chan struct{}, 1)
-	reqsPkg := &requestsPkg{reqs, done}
+	reqsPkg := &RequestsPkg{reqs, done}
 	c.waitingChan <- reqs
 	reqsPkg.wait()
 }
