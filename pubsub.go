@@ -24,7 +24,7 @@ type SubMsg struct {
 
 //订阅
 type PubsubClient struct {
-	redisClient *Connection
+	*Connection
 	replyChan   chan *Request
 	messageChan chan *SubMsg
 	subChan     chan error
@@ -33,7 +33,7 @@ type PubsubClient struct {
 
 func NewPubsubClient(spec *ConnectionSpec) (pubsubClient *PubsubClient) {
 	pubsubClient = &PubsubClient{
-		redisClient: NewConnection(spec),
+		Connection: NewConnection(spec),
 		replyChan:   make(chan *Request, 1),
 		messageChan: make(chan *SubMsg, messageChanLen),
 		subChan:     make(chan error),
@@ -46,7 +46,7 @@ func NewPubsubClient(spec *ConnectionSpec) (pubsubClient *PubsubClient) {
 }
 
 func (p *PubsubClient) Sub(channel ...interface{}) (err error) {
-	err = p.redisClient.pubsubSend("SUBSCRIBE", channel...)
+	err = p.pubsubSend("SUBSCRIBE", channel...)
 	if err != nil {
 		return
 	}
@@ -62,7 +62,7 @@ func (p *PubsubClient) Sub(channel ...interface{}) (err error) {
 }
 
 func (p *PubsubClient) UnSub(channel ...interface{}) (err error) {
-	err = p.redisClient.pubsubSend("UBSUBSCRIBE", channel...)
+	err = p.pubsubSend("UBSUBSCRIBE", channel...)
 
 	subTick := time.After(commandTimeout)
 	select {
@@ -76,7 +76,7 @@ func (p *PubsubClient) UnSub(channel ...interface{}) (err error) {
 
 func (p *PubsubClient) process() {
 	for {
-		reply, err := p.redisClient.pubsubWait(p.replyChan)
+		reply, err := p.pubsubWait(p.replyChan)
 		if err != nil {
 			log.Panic("read sub reply error: %v\n", err)
 		} else {
@@ -125,4 +125,11 @@ func (p *PubsubClient) GetMessage(timeout time.Duration) *SubMsg {
 	case <-tick:
 		return nil
 	}
+}
+
+func (c *PubsubClient) pushRequst(reqs ...*Request) {
+	done := make(chan struct{}, 1)
+	reqsPkg := &requestsPkg{reqs, done}
+	c.waitingChan <- reqs
+	reqsPkg.wait()
 }

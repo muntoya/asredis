@@ -86,13 +86,14 @@ type Connection struct {
 	//等待送入发送线程的请求
 	waitingChan chan *requestsPkg
 
+	//控制消息
+	ctrlChan chan ctrlType
+
 	connected bool
 	err       error
 	pingTick  <-chan time.Time
 
 	lastConnect time.Time
-
-	pubsubChan chan struct{}
 }
 
 func createTCPConnection(s *ConnectionSpec) (net.Conn, error) {
@@ -135,8 +136,6 @@ func (c *Connection) close() {
 }
 
 func (c *Connection) ping() {
-	req := NewRequest("PING")
-	c.pushRequst(nil, req)
 }
 
 func (c *Connection) isShutDown() bool {
@@ -148,26 +147,11 @@ func (c *Connection) isConnected() bool {
 }
 
 func (c *Connection) sendReconnectCtrl() {
-	req := NewRequestType(type_ctrl_reconnect, "")
-	c.pushRequst(nil, req)
+	c.ctrlChan <- type_ctrl_reconnect
 }
 
 func (c *Connection) sendShutdownCtrl() {
-	req := NewRequestType(type_ctrl_shutdown, "")
-	c.pushRequst(nil, req)
-}
-
-func (c *Connection) pushRequst(done chan struct{}, reqs ...*Request) {
-	reqsPkg := &requestsPkg{reqs, done}
-	if done != nil {
-		if cap(done) == 0 {
-			log.Panic("redis client: done channel is unbuffered")
-		}
-		reqsPkg.Done = done
-	}
-
-	c.waitingChan <- reqs
-	reqsPkg.wait()
+	c.ctrlChan <- type_ctrl_shutdown
 }
 
 func (c *Connection) sendRequest(reqsPkg *requestsPkg) {
@@ -251,33 +235,15 @@ func (c *Connection) doPipelining(reqs *requestsPkg) {
 
 func (c *Connection) writeAllRequst(reqs *requestsPkg) {
 	for _, req := range reqs.requests {
-		switch req.reqtype {
-		case type_normal:
-			fallthrough
-		case type_only_send:
-			writeReqToBuf(c.writeBuffer, req)
-		case type_only_wait:
-		default:
-
-		}
+		writeReqToBuf(c.writeBuffer, req)
 	}
 	c.writeBuffer.Flush()
 }
 
 func (c *Connection) readAllReply(reqs *requestsPkg) {
 	for _, req := range reqs.requests {
-		switch req.reqtype {
-		case type_normal:
-			fallthrough
-		case type_only_wait:
-			reply := readReply(c.readBuffer)
-			req.Reply = reply
-		case type_only_send:
-		default:
-
-		}
+		req.Reply = readReply(c.readBuffer)
 	}
-
 	reqs.done()
 }
 
@@ -289,7 +255,6 @@ func NewConnection(spec ConnectionSpec, c chan *requestsPkg) (conn *Connection) 
 		waitingChan:    c,
 		pingTick:       time.Tick(spec.PingInterval),
 		lastConnect:    time.Now(),
-		pubsubChan:		make(chan struct{}, 1),
 	}
 
 	conn.connect()

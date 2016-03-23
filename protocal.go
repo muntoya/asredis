@@ -44,15 +44,11 @@ type Reply struct {
 	Array []interface{}
 }
 
-type requestType byte
+type ctrlType byte
 
 const (
-	type_normal requestType = iota
-	type_only_send
-	type_only_wait
-
 	//control command
-	type_ctrl_begin	//begin标记
+	type_ctrl_begin ctrlType	= iota //begin标记
 	type_ctrl_reconnect
 	type_ctrl_shutdown
 	type_ctrl_end	//end标记
@@ -63,19 +59,6 @@ type Request struct {
 	args    []interface{}
 	Err     error
 	Reply   *Reply
-	reqtype requestType
-}
-
-func NewRequest(cmd string, args ...interface{}) *Request {
-	return NewRequestType(type_normal, cmd, args...)
-}
-
-func NewRequestType(reqtype requestType, cmd string, args ...interface{}) *Request {
-	req := new(Request)
-	req.reqtype = reqtype
-	req.cmd = cmd
-	req.args = args
-	return req
 }
 
 type requestsPkg struct {
