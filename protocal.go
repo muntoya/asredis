@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"log"
 	"strconv"
 )
 
@@ -82,9 +81,7 @@ func (r *RequestsPkg) Add(cmd string, args ...interface{}) {
 }
 
 func (r *RequestsPkg) done() {
-	if r.d != nil {
-		r.d <- r
-	}
+	r.d <- struct{}{}
 }
 
 func (r *RequestsPkg) wait() {
