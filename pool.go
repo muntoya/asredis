@@ -32,7 +32,6 @@ func DefaultPoolSpec() *PoolSpec {
 type Pool struct {
 	conns     []*Connection
 	PoolSpec
-	replyChan chan struct{}
 	queueChan chan *RequestsPkg
 }
 
@@ -50,24 +49,17 @@ func (p *Pool) ConnsFail() int32 {
 	return i
 }
 
-func (p *Pool) Call(reqs... *Request) {
-	c := <-p.replyChan
-	reqPkg := RequestsPkg{reqs, c}
-	p.queueChan <- reqPkg
-	reqPkg.wait()
-	p.replyChan <- c
+func (p *Pool) Call(cmd string, args...interface{}) (*Reply, error) {
+	reqPkg := NewRequstPkg()
+	reqPkg.Add(cmd, args...)
+	p.Pipelining(reqPkg)
+	req := reqPkg.requests[0]
+	return req.Reply, req.Err
 }
 
-func (p *Pool) Go(reqs... *Request) (*RequestsPkg) {
-	c := <-p.replyChan
-	reqPkg := RequestsPkg{reqs, c}
+func (p *Pool) Pipelining(reqPkg *RequestsPkg) {
 	p.queueChan <- reqPkg
-	return reqPkg
-}
-
-func (p *Pool) Wait(reqPkg *RequestsPkg) {
 	reqPkg.wait()
-	p.replyChan <- reqPkg.d
 }
 
 func (p *Pool) Close() {
@@ -75,10 +67,6 @@ func (p *Pool) Close() {
 		c.close()
 	}
 
-	close(p.replyChan)
-	for c := range p.replyChan {
-		close(c)
-	}
 }
 
 func (p *Pool) Eval(l *LuaEval, args ...interface{}) (reply *Reply, err error) {
@@ -100,7 +88,7 @@ func NewPool(spec *PoolSpec) *Pool {
 	queueChan := make(chan *RequestsPkg, spec.QueueSize)
 
 	for i := int32(0); i < spec.PoolSize; i++ {
-		conns[i] = NewConnection(spec.ConnectionSpec, queueChan)
+		conns[i] = NewConnection(*spec.ConnectionSpec, queueChan)
 	}
 
 	pool := &Pool{

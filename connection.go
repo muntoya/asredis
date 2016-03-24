@@ -213,7 +213,7 @@ func (c *Connection) process() {
 		}
 
 		select {
-		case ctrl := c.ctrlChan:
+		case ctrl := <-c.ctrlChan:
 			c.handleCtrl(ctrl)
 		case reqs := <-c.waitingChan:
 			c.sendRequest(reqs)

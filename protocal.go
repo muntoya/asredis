@@ -73,7 +73,7 @@ type RequestsPkg struct {
 	d        chan struct{}
 }
 
-func (r *RequestsPkg) Add(cmd string, args ...string) {
+func (r *RequestsPkg) Add(cmd string, args ...interface{}) {
 	req := &Request{
 		cmd:  cmd,
 		args: args,
