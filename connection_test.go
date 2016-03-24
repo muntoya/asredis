@@ -9,6 +9,14 @@ import (
 	"testing"
 )
 
+func call(c *Connection, cmd string, args...string) (Reply, error) {
+	r := NewRequstPkg()
+	r.Add(cmd, args...)
+	c.waitingChan <- r
+	r.wait()
+	return r.requests[0].Reply, r.requests[0].Err
+}
+
 func TestConnection(t *testing.T) {
 	//t.Skip("skip connection test")
 	spec := DefaultConnectionSpec()
@@ -16,13 +24,12 @@ func TestConnection(t *testing.T) {
 	conn := NewConnection(*spec, reqChan)
 	defer conn.close()
 
-	r := NewRequstPkg()
-	r.Add("SET", "int", 2)
-	reqChan <- r
-	r.wait()
-	reply := r.requests[0].Reply
-	if r.requests[0].Err != nil {
-		t.Fatal(r.requests[0].Err)
+
+	var reply *Reply
+	var err error
+	reply, err = call(conn, "SET", "int", 2)
+	if err != nil {
+		t.Fatal(err)
 	} else {
 		t.Log(reply.Type, reply.Value)
 	}
@@ -30,7 +37,7 @@ func TestConnection(t *testing.T) {
 	assert.Equal(t, reply.Type, STRING)
 	assert.Equal(t, reply.Value, "OK")
 
-	reply, err = conn.call(c, "GET", "int")
+	reply, err = call(conn, "GET", "int")
 	if err != nil {
 		t.Fatal(err)
 	} else {
@@ -38,16 +45,17 @@ func TestConnection(t *testing.T) {
 	}
 
 	l := []interface{}{"1", "2", "3", "4", "5"}
-	conn.call(c, "DEL", "list")
-	reply, err = conn.call(c, "RPUSH", append([]interface{}{"list"}, l...)...)
-	reply, err = conn.call(c, "LRANGE", "list", 0, -1)
+	call(conn, "DEL", "list")
+	reply, err = call(conn, "RPUSH", append([]interface{}{"list"}, l...)...)
+	reply, err = call(conn, "LRANGE", "list", 0, -1)
 	assert.Equal(t, reply.Array, l)
 }
 
 func TestConnRoutine(t *testing.T) {
 	//t.Skip("skip connection routine")
 	spec := DefaultConnectionSpec()
-	conn := NewConnection(spec)
+	reqChan := make(chan *RequestsPkg, 10)
+	conn := NewConnection(*spec, reqChan)
 	defer conn.close()
 
 	routineNum := 80
@@ -56,10 +64,9 @@ func TestConnRoutine(t *testing.T) {
 	w.Add(routineNum)
 	for i := 0; i < routineNum; i++ {
 		go func(n int) {
-			c := make(chan *Request, 1)
 			key := fmt.Sprintf("int%d", n)
 			for j := 0; j < times; j++ {
-				_, e := conn.call(c, "set", key, n)
+				_, e := call(conn, "set", key, n)
 				if e != nil {
 					t.Fatal(e)
 				}
@@ -73,8 +80,9 @@ func TestConnRoutine(t *testing.T) {
 func TestConnError(t *testing.T) {
 	t.Skip("skip connnection loop")
 	spec := DefaultConnectionSpec()
-	conn := NewConnection(spec)
-	c := make(chan *Request, 1)
+	reqChan := make(chan *RequestsPkg, 10)
+	conn := NewConnection(*spec, reqChan)
+	defer conn.close()
 
 	go func() {
 		time.Sleep(time.Second * 1)
@@ -83,7 +91,7 @@ func TestConnError(t *testing.T) {
 
 	for i := 0; i < 3; i++ {
 		fmt.Println("go", i)
-		reply, err := conn.call(c, "GET", "int")
+		reply, err := call(conn, "GET", "int")
 		fmt.Println(i, err)
 		if err == nil {
 			t.Log(reply.Type, reply.Value)
