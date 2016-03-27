@@ -14,6 +14,7 @@ var (
 	ErrNotConnected       = errors.New("redis: not connected")
 	ErrNotRunning         = errors.New("redis: shutdown and can't use any more")
 	ErrUnexpectedCtrlType = errors.New("redis: can't process control command")
+	ErrEmptyReqests			= errors.New("redis: package has no request")
 )
 
 const (

@@ -63,36 +63,30 @@ type ClusterInfo struct {
 
 type requestListMap map[*Pool] []*Request
 
-func (c *Cluster) Call(reqs... *Request) {
-	m := requestListMap{}
-	for _, req := range reqs {
-		key := fmt.Sprint(req.args[0])
-		pool, err := c.getPools(key)
-		if err != nil {
-			req.Err = err
-		} else {
-			m[pool] = append(m[pool], req)
-		}
+func (c *Cluster) Call(cmd string, args...interface{}) (*Reply, error) {
+	pool, err := c.getPools(args[0])
+	if err != nil {
+		return nil, err
 	}
-
-	//处理多个请求包等待
-	var l []*RequestsPkg
-	for k, v := range m {
-		l  = append(l, k.Go(v...))
-	}
-
-	for k, v := range m {
-
-	}
+	return pool.Call(cmd, args...)
 }
 
 //不使用hash
-func (c *Cluster) CallN(reqs... *Request) {
-	//c.pools[0].Call(reqs...)
+func (c *Cluster) Pipelining(reqPkg *RequestsPkg) error {
+	if len(reqPkg.requests) == 0 {
+		return ErrEmptyReqests
+	}
+	pool, err := c.getPools(reqPkg.requests[0])
+	if err != nil {
+		return err
+	}
+	pool.Pipelining(reqPkg)
+	return nil
 }
 
-func (c *Cluster) getPools(key string) (pool *Pool, err error) {
-	v := CRC16([]byte(key)) % numSlots
+func (c *Cluster) getPools(key interface{}) (pool *Pool, err error) {
+	k := fmt.Sprint(key)
+	v := CRC16([]byte(k)) % numSlots
 	pool = c.slotsMap[v]
 	if pool == nil {
 		err = ErrNoSlot
@@ -116,9 +110,7 @@ func (c *Cluster) updateSlots() (err error) {
 
 	var pool *Pool
 	pool, err = c.getTempPool()
-	if err != nil {
-		return
-	}
+	checkError(err)
 
 	info := getClusterInfo(pool)
 
@@ -126,7 +118,7 @@ func (c *Cluster) updateSlots() (err error) {
 	defer c.mutex.Unlock()
 
 	if c.info != nil && c.info.currentEpoch >= info.currentEpoch {
-		return
+		return ErrSlotsInfo
 	}
 
 	c.info = info
@@ -166,10 +158,8 @@ func (c *Cluster) getTempPool() (pool *Pool, err error) {
 }
 
 func getSlotsInfo(pool *Pool) (slotsArray []*ClusterSlots) {
-	req := NewRequest("CLUSTER", "slots")
-	pool.Call(req)
-	checkError(req.Err)
-	reply := req.Reply
+	reply, err := pool.Call("CLUSTER", "slots")
+	checkError(err)
 
 	if reply.Type != ARRAY {
 		panic(ErrSlotsInfo)
@@ -193,10 +183,8 @@ func getSlotsInfo(pool *Pool) (slotsArray []*ClusterSlots) {
 }
 
 func getClusterInfo(pool *Pool) (info *ClusterInfo) {
-	req := NewRequest("CLUSTER", "info")
-	pool.Call(req)
-	checkError(req.Err)
-	reply := req.Reply
+	reply, err := pool.Call("CLUSTER", "info")
+	checkError(err)
 
 	infoStr := reply.Value.(string)
 	infoStr = strings.Trim(infoStr, "\r\n ")
@@ -230,9 +218,8 @@ func getClusterInfo(pool *Pool) (info *ClusterInfo) {
 }
 
 func getClusterNodes(pool *Pool) {
-	req := NewRequest("CLUSTER", "nodes")
-	pool.Call(req)
-	fmt.Println(req.Reply, req.Err)
+	reply, err := pool.Call("CLUSTER", "nodes")
+	fmt.Println(reply, err)
 }
 
 func (c *Cluster) checkCluster() {

@@ -90,6 +90,22 @@ func (r *RequestsPkg) wait() {
 	}
 }
 
+//返回第一个请求的错误
+func (r *RequestsPkg) err() error {
+	if len(r.requests) != 0 {
+		return r.requests[0].Err
+	}
+	return nil
+}
+
+//返回第一个请求的回复
+func (r *RequestsPkg) reply() *Reply {
+	if len(r.requests) != 0 {
+		return r.requests[0].Reply
+	}
+	return nil
+}
+
 func readToCRLF(io *bufio.Reader) []byte {
 	buf, err := io.ReadBytes(cr_byte)
 	checkError(err)
