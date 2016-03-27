@@ -9,12 +9,12 @@ import (
 	"testing"
 )
 
-func call(c *Connection, cmd string, args...string) (Reply, error) {
+func call(c *Connection, cmd string, args...interface{}) (*Reply, error) {
 	r := NewRequstPkg()
 	r.Add(cmd, args...)
 	c.waitingChan <- r
 	r.wait()
-	return r.requests[0].Reply, r.requests[0].Err
+	return r.reply(), r.err()
 }
 
 func TestConnection(t *testing.T) {

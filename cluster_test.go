@@ -10,7 +10,7 @@ import (
 
 func TestCluster(t *testing.T) {
 	t.Skip("cluster")
-	spec := DefaultPoolSpec()
+	spec := DefaultClusterSpec()
 	spec.Port = 7000
 	cluster, _ := NewCluster(spec)
 
