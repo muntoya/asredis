@@ -13,34 +13,41 @@ import (
 type ConnectionTestSuite struct {
 	suite.Suite
 
-	conn *Connection
+	Conn *Connection
 }
 
 func (s *ConnectionTestSuite) SetupSuite() {
 	spec := DefaultConnectionSpec()
 	reqChan := make(chan *RequestsPkg, 10)
-	s.conn = NewConnection(*spec, reqChan)
+	s.Conn = NewConnection(*spec, reqChan)
 }
 
 func (s *ConnectionTestSuite) TearDownSuite() {
-	s.conn.Close()
+	fmt.Println("close")
+	s.Conn.Close()
 }
 
-func (s *ConnectionTestSuite) Do(cmd string, args ...interface{}) (*Reply, error) {
+func (s *ConnectionTestSuite) SetupTest() {
+}
+
+func (s *ConnectionTestSuite) TearDownTest() {
+
+}
+
+func Do(conn *Connection, cmd string, args ...interface{}) (*Reply, error) {
 	r := NewRequstPkg()
 	r.Add(cmd, args...)
-	s.conn.waitingChan <- r
+	conn.waitingChan <- r
 	r.wait()
 	return r.reply(), r.err()
 }
 
 func (s *ConnectionTestSuite) TestConnection() {
-	//t.Skip("skip connection test")
-	fmt.Println("1")
 	t := s.T()
+	//t.Skip("skip connection test")
 	var reply *Reply
 	var err error
-	reply, err = s.Do("SET", "int", 2)
+	reply, err = Do(s.Conn, "SET", "int", 2)
 	if err != nil {
 		t.Fatal(err)
 	} else {
@@ -50,7 +57,7 @@ func (s *ConnectionTestSuite) TestConnection() {
 	assert.Equal(t, reply.Type, STRING)
 	assert.Equal(t, reply.Value, "OK")
 
-	reply, err = s.Do("GET", "int")
+	reply, err = Do(s.Conn, "GET", "int")
 	if err != nil {
 		t.Fatal(err)
 	} else {
@@ -58,13 +65,14 @@ func (s *ConnectionTestSuite) TestConnection() {
 	}
 
 	l := []interface{}{"1", "2", "3", "4", "5"}
-	s.Do("DEL", "list")
-	reply, err = s.Do("RPUSH", append([]interface{}{"list"}, l...)...)
-	reply, err = s.Do("LRANGE", "list", 0, -1)
+	Do(s.Conn, "DEL", "list")
+	reply, err = Do(s.Conn, "RPUSH", append([]interface{}{"list"}, l...)...)
+	reply, err = Do(s.Conn, "LRANGE", "list", 0, -1)
 	assert.Equal(t, reply.Array, l)
 }
 
-func (s *ConnectionTestSuite) TestConnRoutine(t *testing.T) {
+func (s *ConnectionTestSuite) TestConnRoutine() {
+	t := s.T()
 	//t.Skip("skip connection routine")
 	spec := DefaultConnectionSpec()
 	reqChan := make(chan *RequestsPkg, 10)
@@ -79,7 +87,7 @@ func (s *ConnectionTestSuite) TestConnRoutine(t *testing.T) {
 		go func(n int) {
 			key := fmt.Sprintf("int%d", n)
 			for j := 0; j < times; j++ {
-				_, e := s.Do("set", key, n)
+				_, e := Do(s.Conn, "set", key, n)
 				if e != nil {
 					t.Fatal(e)
 				}
@@ -90,7 +98,8 @@ func (s *ConnectionTestSuite) TestConnRoutine(t *testing.T) {
 	w.Wait()
 }
 
-func (s *ConnectionTestSuite) TestConnError(t *testing.T) {
+func (s *ConnectionTestSuite) TestConnError() {
+	t := s.T()
 	t.Skip("skip connnection loop")
 	spec := DefaultConnectionSpec()
 	reqChan := make(chan *RequestsPkg, 10)
@@ -104,7 +113,7 @@ func (s *ConnectionTestSuite) TestConnError(t *testing.T) {
 
 	for i := 0; i < 3; i++ {
 		fmt.Println("go", i)
-		reply, err := s.Do("GET", "int")
+		reply, err := Do(s.Conn, "GET", "int")
 		fmt.Println(i, err)
 		if err == nil {
 			t.Log(reply.Type, reply.Value)
