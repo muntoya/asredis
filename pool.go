@@ -64,7 +64,7 @@ func (p *Pool) Pipelining(reqPkg *RequestsPkg) {
 
 func (p *Pool) Close() {
 	for _, c := range p.conns {
-		c.close()
+		c.Close()
 	}
 
 }

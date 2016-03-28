@@ -14,7 +14,7 @@ var (
 	ErrNotConnected       = errors.New("redis: not connected")
 	ErrNotRunning         = errors.New("redis: shutdown and can't use any more")
 	ErrUnexpectedCtrlType = errors.New("redis: can't process control command")
-	ErrEmptyReqests			= errors.New("redis: package has no request")
+	ErrEmptyReqests       = errors.New("redis: package has no request")
 )
 
 const (
@@ -131,7 +131,7 @@ func (c *Connection) connect() {
 	c.err = nil
 }
 
-func (c *Connection) close() {
+func (c *Connection) Close() {
 	c.sendShutdownCtrl()
 	c.connected = false
 }
@@ -251,6 +251,7 @@ func NewConnection(spec ConnectionSpec, c chan *RequestsPkg) (conn *Connection) 
 		waitingChan:    c,
 		pingTick:       time.Tick(spec.PingInterval),
 		lastConnect:    time.Now(),
+		ctrlChan:       make(chan ctrlType, 10),
 	}
 
 	conn.connect()

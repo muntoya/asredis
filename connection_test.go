@@ -22,8 +22,7 @@ func TestConnection(t *testing.T) {
 	spec := DefaultConnectionSpec()
 	reqChan := make(chan *RequestsPkg, 10)
 	conn := NewConnection(*spec, reqChan)
-	defer conn.close()
-
+	defer conn.Close()
 
 	var reply *Reply
 	var err error
@@ -56,7 +55,7 @@ func TestConnRoutine(t *testing.T) {
 	spec := DefaultConnectionSpec()
 	reqChan := make(chan *RequestsPkg, 10)
 	conn := NewConnection(*spec, reqChan)
-	defer conn.close()
+	defer conn.Close()
 
 	routineNum := 80
 	times := 100
@@ -82,7 +81,7 @@ func TestConnError(t *testing.T) {
 	spec := DefaultConnectionSpec()
 	reqChan := make(chan *RequestsPkg, 10)
 	conn := NewConnection(*spec, reqChan)
-	defer conn.close()
+	defer conn.Close()
 
 	go func() {
 		time.Sleep(time.Second * 1)
