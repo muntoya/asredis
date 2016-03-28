@@ -5,28 +5,42 @@ import (
 	//	"runtime/debug"
 	"fmt"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
 	"sync"
 	"testing"
 )
 
-func call(c *Connection, cmd string, args...interface{}) (*Reply, error) {
+type ConnectionTestSuite struct {
+	suite.Suite
+
+	conn *Connection
+}
+
+func (s *ConnectionTestSuite) SetupSuite() {
+	spec := DefaultConnectionSpec()
+	reqChan := make(chan *RequestsPkg, 10)
+	s.conn = NewConnection(*spec, reqChan)
+}
+
+func (s *ConnectionTestSuite) TearDownSuite() {
+	s.conn.Close()
+}
+
+func (s *ConnectionTestSuite) Do(cmd string, args ...interface{}) (*Reply, error) {
 	r := NewRequstPkg()
 	r.Add(cmd, args...)
-	c.waitingChan <- r
+	s.conn.waitingChan <- r
 	r.wait()
 	return r.reply(), r.err()
 }
 
-func TestConnection(t *testing.T) {
+func (s *ConnectionTestSuite) TestConnection() {
 	//t.Skip("skip connection test")
-	spec := DefaultConnectionSpec()
-	reqChan := make(chan *RequestsPkg, 10)
-	conn := NewConnection(*spec, reqChan)
-	defer conn.Close()
-
+	fmt.Println("1")
+	t := s.T()
 	var reply *Reply
 	var err error
-	reply, err = call(conn, "SET", "int", 2)
+	reply, err = s.Do("SET", "int", 2)
 	if err != nil {
 		t.Fatal(err)
 	} else {
@@ -36,7 +50,7 @@ func TestConnection(t *testing.T) {
 	assert.Equal(t, reply.Type, STRING)
 	assert.Equal(t, reply.Value, "OK")
 
-	reply, err = call(conn, "GET", "int")
+	reply, err = s.Do("GET", "int")
 	if err != nil {
 		t.Fatal(err)
 	} else {
@@ -44,13 +58,13 @@ func TestConnection(t *testing.T) {
 	}
 
 	l := []interface{}{"1", "2", "3", "4", "5"}
-	call(conn, "DEL", "list")
-	reply, err = call(conn, "RPUSH", append([]interface{}{"list"}, l...)...)
-	reply, err = call(conn, "LRANGE", "list", 0, -1)
+	s.Do("DEL", "list")
+	reply, err = s.Do("RPUSH", append([]interface{}{"list"}, l...)...)
+	reply, err = s.Do("LRANGE", "list", 0, -1)
 	assert.Equal(t, reply.Array, l)
 }
 
-func TestConnRoutine(t *testing.T) {
+func (s *ConnectionTestSuite) TestConnRoutine(t *testing.T) {
 	//t.Skip("skip connection routine")
 	spec := DefaultConnectionSpec()
 	reqChan := make(chan *RequestsPkg, 10)
@@ -58,14 +72,14 @@ func TestConnRoutine(t *testing.T) {
 	defer conn.Close()
 
 	routineNum := 80
-	times := 100
+	times := 10
 	var w sync.WaitGroup
 	w.Add(routineNum)
 	for i := 0; i < routineNum; i++ {
 		go func(n int) {
 			key := fmt.Sprintf("int%d", n)
 			for j := 0; j < times; j++ {
-				_, e := call(conn, "set", key, n)
+				_, e := s.Do("set", key, n)
 				if e != nil {
 					t.Fatal(e)
 				}
@@ -76,7 +90,7 @@ func TestConnRoutine(t *testing.T) {
 	w.Wait()
 }
 
-func TestConnError(t *testing.T) {
+func (s *ConnectionTestSuite) TestConnError(t *testing.T) {
 	t.Skip("skip connnection loop")
 	spec := DefaultConnectionSpec()
 	reqChan := make(chan *RequestsPkg, 10)
@@ -90,7 +104,7 @@ func TestConnError(t *testing.T) {
 
 	for i := 0; i < 3; i++ {
 		fmt.Println("go", i)
-		reply, err := call(conn, "GET", "int")
+		reply, err := s.Do("GET", "int")
 		fmt.Println(i, err)
 		if err == nil {
 			t.Log(reply.Type, reply.Value)
@@ -99,4 +113,9 @@ func TestConnError(t *testing.T) {
 		}
 		time.Sleep(time.Second * 1)
 	}
+}
+
+func TestRunSuite(t *testing.T) {
+	suiteTester := new(ConnectionTestSuite)
+	suite.Run(t, suiteTester)
 }
