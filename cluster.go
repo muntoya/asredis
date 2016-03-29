@@ -63,7 +63,7 @@ type ClusterInfo struct {
 
 type requestListMap map[*Pool] []*Request
 
-func (c *Cluster) Call(cmd string, args...interface{}) (*Reply, error) {
+func (c *Cluster) Call(cmd string, args...interface{}) (interface{}, error) {
 	pool, err := c.getPools(args[0])
 	if err != nil {
 		return nil, err

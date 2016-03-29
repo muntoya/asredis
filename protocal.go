@@ -2,6 +2,7 @@ package asredis
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"strconv"
@@ -10,6 +11,11 @@ import (
 var (
 	ErrExpectingLinefeed   = errors.New("redis: expecting a linefeed byte")
 	ErrUnexpectedReplyType = errors.New("redis: can't parse reply type")
+)
+
+var (
+	okReply   interface{} = []byte("OK")
+	pongReply interface{} = []byte("PONG")
 )
 
 type Error string
@@ -120,18 +126,25 @@ func readToCRLF(io *bufio.Reader) []byte {
 }
 
 //读取一个完整的回复数据
-func readReply(io *bufio.Reader) (reply interface{}, error) {
+func readReply(io *bufio.Reader) (reply interface{}, err error) {
 	if io == nil {
-		return ErrNotConnected
+		panic(ErrNotConnected)
 	}
 
 	b := readToCRLF(io)
 	switch v := b[1:]; b[0] {
 	case ok_byte:
-		reply = v
+		switch {
+		case bytes.Equal(v, okReply.([]byte)):
+			reply = okReply
+		case bytes.Equal(v, pongReply.([]byte)):
+			reply = pongReply
+		default:
+			reply = v
+		}
 
 	case err_byte:
-		panic(Error(string(v)))
+		err = Error(string(v))
 
 	case num_byte:
 		i, err := strconv.Atoi(string(v))
@@ -139,13 +152,14 @@ func readReply(io *bufio.Reader) (reply interface{}, error) {
 		reply = i
 
 	case size_byte:
-		len, err := strconv.Atoi(v)
+		var size int
+		size, err = strconv.Atoi(string(v))
 		checkError(err)
 
-		s, err := io.Peek(len)
+		s, err := io.Peek(size)
 		checkError(err)
 
-		l, err := io.Discard(len)
+		l, err := io.Discard(size)
 		checkError(err)
 
 		readToCRLF(io)
@@ -153,40 +167,22 @@ func readReply(io *bufio.Reader) (reply interface{}, error) {
 		reply = string(s[0:l])
 
 	case array_byte:
-		len, err := strconv.Atoi(v)
+		var size int
+		size, err = strconv.Atoi(string(v))
 		checkError(err)
 
-		reply = readArray(io, len)
+		r := make([]interface{}, size)
+		for i := 0; i < size; i++ {
+			r[i], err = readReply(io)
+			if err != nil {
+				return nil, err
+			}
+		}
 
 	default:
 		panic(ErrUnexpectedReplyType)
 	}
 
-	return
-}
-
-//递归读取数组数据
-func readArray(io *bufio.Reader, len int) (array []interface{}) {
-	array = make([]interface{}, len)
-	for i := 0; i < len; i++ {
-		s := readToCRLF(io)
-		switch s[0] {
-		case num_byte:
-			ele, err := strconv.Atoi(string(s[1:]))
-			checkError(err)
-			array[i] = ele
-		case size_byte:
-			ele := readToCRLF(io)
-			array[i] = string(ele)
-		case array_byte:
-			l, err := strconv.Atoi(string(s[1:]))
-			checkError(err)
-			array[i] = readArray(io, l)
-
-		default:
-			panic(ErrUnexpectedReplyType)
-		}
-	}
 	return
 }
 

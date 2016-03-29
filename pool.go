@@ -49,7 +49,7 @@ func (p *Pool) ConnsFail() int32 {
 	return i
 }
 
-func (p *Pool) Call(cmd string, args...interface{}) (*Reply, error) {
+func (p *Pool) Call(cmd string, args...interface{}) (interface{}, error) {
 	reqPkg := NewRequstPkg()
 	reqPkg.Add(cmd, args...)
 	p.Pipelining(reqPkg)
@@ -69,10 +69,10 @@ func (p *Pool) Close() {
 
 }
 
-func (p *Pool) Eval(l *LuaEval, args ...interface{}) (reply *Reply, err error) {
+func (p *Pool) Eval(l *LuaEval, args ...interface{}) (reply interface{}, err error) {
 	reply, err = p.Call("EVALSHA", joinArgs(l.hash, args)...)
 
-	if reply.Type == ERROR {
+	if err != nil {
 		var content string
 		content, err = l.readFile()
 		if err != nil {

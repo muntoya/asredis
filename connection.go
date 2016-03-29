@@ -238,7 +238,7 @@ func (c *Connection) writeAllRequst(reqs *RequestsPkg) {
 
 func (c *Connection) readAllReply(reqs *RequestsPkg) {
 	for _, req := range reqs.requests {
-		req.Reply = readReply(c.readBuffer)
+		req.Reply, req.Err = readReply(c.readBuffer)
 	}
 	reqs.done()
 }
