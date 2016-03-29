@@ -12,6 +12,10 @@ var (
 	ErrUnexpectedReplyType = errors.New("redis: can't parse reply type")
 )
 
+type Error string
+
+func (err Error) Error() string { return string(err) }
+
 const (
 	cr_byte    byte = byte('\r')
 	lf_byte         = byte('\n')
@@ -37,12 +41,6 @@ const (
 	ARRAY
 )
 
-type Reply struct {
-	Type  ResponseType
-	Value interface{}
-	Array []interface{}
-}
-
 type ctrlType byte
 
 const (
@@ -57,7 +55,7 @@ type Request struct {
 	cmd   string
 	args  []interface{}
 	Err   error
-	Reply *Reply
+	Reply interface{}
 }
 
 func NewRequstPkg() *RequestsPkg {
@@ -99,7 +97,7 @@ func (r *RequestsPkg) err() error {
 }
 
 //返回第一个请求的回复
-func (r *RequestsPkg) reply() *Reply {
+func (r *RequestsPkg) reply() interface{} {
 	if len(r.requests) != 0 {
 		return r.requests[0].Reply
 	}
@@ -122,31 +120,25 @@ func readToCRLF(io *bufio.Reader) []byte {
 }
 
 //读取一个完整的回复数据
-func readReply(io *bufio.Reader) (reply *Reply) {
+func readReply(io *bufio.Reader) (reply interface{}, error) {
 	if io == nil {
-		panic(ErrNotConnected)
+		return ErrNotConnected
 	}
 
 	b := readToCRLF(io)
-	reply = new(Reply)
-
-	switch v := string(b[1:]); b[0] {
+	switch v := b[1:]; b[0] {
 	case ok_byte:
-		reply.Type = STRING
-		reply.Value = string(v)
+		reply = v
 
 	case err_byte:
-		reply.Type = ERROR
-		reply.Value = string(v)
+		panic(Error(string(v)))
 
 	case num_byte:
-		reply.Type = INTEGER
 		i, err := strconv.Atoi(string(v))
 		checkError(err)
-		reply.Value = i
+		reply = i
 
 	case size_byte:
-		reply.Type = BULK
 		len, err := strconv.Atoi(v)
 		checkError(err)
 
@@ -158,14 +150,13 @@ func readReply(io *bufio.Reader) (reply *Reply) {
 
 		readToCRLF(io)
 
-		reply.Value = string(s[0:l])
+		reply = string(s[0:l])
 
 	case array_byte:
 		len, err := strconv.Atoi(v)
 		checkError(err)
 
-		reply.Type = ARRAY
-		reply.Array = readArray(io, len)
+		reply = readArray(io, len)
 
 	default:
 		panic(ErrUnexpectedReplyType)
