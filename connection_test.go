@@ -34,7 +34,7 @@ func (s *ConnectionTestSuite) TearDownTest() {
 
 }
 
-func Do(conn *Connection, cmd string, args ...interface{}) (*Reply, error) {
+func Do(conn *Connection, cmd string, args ...interface{}) (interface{}, error) {
 	r := NewRequstPkg()
 	r.Add(cmd, args...)
 	conn.waitingChan <- r
@@ -45,30 +45,29 @@ func Do(conn *Connection, cmd string, args ...interface{}) (*Reply, error) {
 func (s *ConnectionTestSuite) TestConnection() {
 	t := s.T()
 	//t.Skip("skip connection test")
-	var reply *Reply
+	var reply interface{}
 	var err error
 	reply, err = Do(s.Conn, "SET", "int", 2)
 	if err != nil {
 		t.Fatal(err)
 	} else {
-		t.Log(reply.Type, reply.Value)
+		t.Log(reply)
 	}
 
-	assert.Equal(t, reply.Type, STRING)
-	assert.Equal(t, reply.Value, "OK")
+	assert.Equal(t, reply.([]byte), []byte("OK"))
 
 	reply, err = Do(s.Conn, "GET", "int")
 	if err != nil {
 		t.Fatal(err)
 	} else {
-		t.Log(reply.Type, reply.Value)
+		t.Log(reply)
 	}
 
 	l := []interface{}{"1", "2", "3", "4", "5"}
 	Do(s.Conn, "DEL", "list")
 	reply, err = Do(s.Conn, "RPUSH", append([]interface{}{"list"}, l...)...)
 	reply, err = Do(s.Conn, "LRANGE", "list", 0, -1)
-	assert.Equal(t, reply.Array, l)
+	assert.Equal(t, l, reply)
 }
 
 func (s *ConnectionTestSuite) TestConnRoutine() {
@@ -116,7 +115,7 @@ func (s *ConnectionTestSuite) TestConnError() {
 		reply, err := Do(s.Conn, "GET", "int")
 		fmt.Println(i, err)
 		if err == nil {
-			t.Log(reply.Type, reply.Value)
+			t.Log(reply)
 		} else {
 			t.Log(err)
 		}

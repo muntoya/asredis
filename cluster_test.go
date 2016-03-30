@@ -21,7 +21,7 @@ func TestCluster(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		reply, err := cluster.Call("get", fmt.Sprintf("int%d", i))
-		assert.Equal(t, reply.Value, strconv.Itoa(i))
+		assert.Equal(t, reply, strconv.Itoa(i))
 		assert.Equal(t, err, nil)
 	}
 }

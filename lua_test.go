@@ -11,5 +11,5 @@ func TestLuaEval(t *testing.T) {
 	spec := DefaultPoolSpec()
 	pool := NewPool(spec)
 	reply, err := pool.Eval(l, 0)
-	fmt.Println(fmt.Sprint(reply.Value), err)
+	fmt.Println(fmt.Sprint(reply), err)
 }

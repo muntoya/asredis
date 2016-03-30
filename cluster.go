@@ -161,11 +161,12 @@ func getSlotsInfo(pool *Pool) (slotsArray []*ClusterSlots) {
 	reply, err := pool.Call("CLUSTER", "slots")
 	checkError(err)
 
-	if reply.Type != ARRAY {
+	array, ok := reply.([]interface{})
+	if !ok {
 		panic(ErrSlotsInfo)
 	}
 
-	for _, s := range reply.Array {
+	for _, s := range array {
 		info := s.([]interface{})
 		slots := &ClusterSlots{}
 
@@ -186,7 +187,7 @@ func getClusterInfo(pool *Pool) (info *ClusterInfo) {
 	reply, err := pool.Call("CLUSTER", "info")
 	checkError(err)
 
-	infoStr := reply.Value.(string)
+	infoStr := string(reply.([]byte))
 	infoStr = strings.Trim(infoStr, "\r\n ")
 	attrs := strings.Split(infoStr, "\r\n")
 
