@@ -2,7 +2,6 @@ package asredis
 
 import (
 	"bufio"
-	"bytes"
 	"errors"
 	"fmt"
 	"strconv"
@@ -14,9 +13,9 @@ var (
 	ErrNilReply            = errors.New("redis: reply is nil")
 )
 
-var (
-	okReply   interface{} = []byte("OK")
-	pongReply interface{} = []byte("PONG")
+const (
+	okReply   = "OK"
+	pongReply = "PONG"
 )
 
 type Error string
@@ -133,28 +132,28 @@ func readReply(io *bufio.Reader) (reply interface{}, err error) {
 	}
 
 	b := readToCRLF(io)
-	switch v := b[1:]; b[0] {
+	switch v := string(b[1:]); b[0] {
 	case ok_byte:
 		switch {
-		case bytes.Equal(v, okReply.([]byte)):
+		case v == okReply:
 			reply = okReply
-		case bytes.Equal(v, pongReply.([]byte)):
+		case v == pongReply:
 			reply = pongReply
 		default:
 			reply = v
 		}
 
 	case err_byte:
-		err = Error(string(v))
+		err = Error(v)
 
 	case num_byte:
-		i, err := strconv.Atoi(string(v))
+		i, err := strconv.Atoi(v)
 		checkError(err)
 		reply = i
 
 	case size_byte:
 		var size int
-		size, err = strconv.Atoi(string(v))
+		size, err = strconv.Atoi(v)
 		checkError(err)
 
 		if size < 0 {
@@ -173,7 +172,7 @@ func readReply(io *bufio.Reader) (reply interface{}, err error) {
 
 	case array_byte:
 		var size int
-		size, err = strconv.Atoi(string(v))
+		size, err = strconv.Atoi(v)
 		checkError(err)
 
 		r := make([]interface{}, size)
@@ -183,6 +182,7 @@ func readReply(io *bufio.Reader) (reply interface{}, err error) {
 				return nil, err
 			}
 		}
+		reply = r
 
 	default:
 		panic(ErrUnexpectedReplyType)

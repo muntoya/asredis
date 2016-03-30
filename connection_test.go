@@ -54,7 +54,7 @@ func (s *ConnectionTestSuite) TestConnection() {
 		t.Log(reply)
 	}
 
-	assert.Equal(t, reply.([]byte), []byte("OK"))
+	assert.Equal(t, reply.(string), "OK")
 
 	reply, err = Do(s.Conn, "GET", "int")
 	if err != nil {
@@ -67,6 +67,7 @@ func (s *ConnectionTestSuite) TestConnection() {
 	Do(s.Conn, "DEL", "list")
 	reply, err = Do(s.Conn, "RPUSH", append([]interface{}{"list"}, l...)...)
 	reply, err = Do(s.Conn, "LRANGE", "list", 0, -1)
+
 	assert.Equal(t, l, reply)
 }
 
