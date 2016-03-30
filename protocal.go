@@ -147,6 +147,7 @@ func readReply(io *bufio.Reader) (reply interface{}, err error) {
 		err = Error(string(v))
 
 	case num_byte:
+		//TODO: 为长度为-1的做错误判断
 		i, err := strconv.Atoi(string(v))
 		checkError(err)
 		reply = i
