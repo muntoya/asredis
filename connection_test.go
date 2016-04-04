@@ -43,32 +43,34 @@ func Do(conn *Connection, cmd string, args ...interface{}) (interface{}, error) 
 }
 
 func (s *ConnectionTestSuite) TestConnection() {
+	var testCommands = []struct {
+		args     []interface{}
+		expected interface{}
+	}{
+		{
+			[]interface{}{"SET", "int", 2},
+			"OK",
+		},
+		{
+			[]interface{}{"GET", "int"},
+			2,
+		},
+		{
+			[]interface{}{"RPUSH", "list", "1", "2", "3", "4", "5"},
+			[]interface{}{"1", "2", "3", "4", "5"},
+		},
+	}
+
 	t := s.T()
 	//t.Skip("skip connection test")
-	var reply interface{}
-	var err error
-	reply, err = Do(s.Conn, "SET", "int", 2)
-	if err != nil {
-		t.Fatal(err)
-	} else {
-		t.Log(reply)
+
+	for _, command := range testCommands {
+		var reply interface{}
+		var err error
+		reply, err = Do(s.Conn, command.args[0].(string), command.args[1:]...)
+		assert.Nil(t, err)
+		assert.Equal(t, command.expected, reply)
 	}
-
-	assert.Equal(t, reply.(string), "OK")
-
-	reply, err = Do(s.Conn, "GET", "int")
-	if err != nil {
-		t.Fatal(err)
-	} else {
-		t.Log(reply)
-	}
-
-	l := []interface{}{"1", "2", "3", "4", "5"}
-	Do(s.Conn, "DEL", "list")
-	reply, err = Do(s.Conn, "RPUSH", append([]interface{}{"list"}, l...)...)
-	reply, err = Do(s.Conn, "LRANGE", "list", 0, -1)
-
-	assert.Equal(t, l, reply)
 }
 
 func (s *ConnectionTestSuite) TestConnRoutine() {
