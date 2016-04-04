@@ -70,7 +70,7 @@ func (p *Pool) Close() {
 }
 
 func (p *Pool) Eval(l *LuaEval, args ...interface{}) (reply interface{}, err error) {
-	reply, err = p.Call("EVALSHA", joinArgs(l.hash, args)...)
+	reply, err = p.Call("EVALSHA", JoinArgs(l.hash, args)...)
 
 	if err != nil {
 		var content string
@@ -78,7 +78,7 @@ func (p *Pool) Eval(l *LuaEval, args ...interface{}) (reply interface{}, err err
 		if err != nil {
 			return
 		}
-		reply, err = p.Call("EVAL", joinArgs(content, args)...)
+		reply, err = p.Call("EVAL", JoinArgs(content, args)...)
 	}
 	return
 }
@@ -98,8 +98,4 @@ func NewPool(spec *PoolSpec) *Pool {
 	}
 
 	return pool
-}
-
-func joinArgs(s interface{}, args []interface{}) []interface{} {
-	return append([]interface{}{s}, args...)
 }

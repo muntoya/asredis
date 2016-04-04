@@ -36,16 +36,6 @@ const (
 
 var cr_lf = []byte{cr_byte, lf_byte}
 
-type ResponseType byte
-
-const (
-	NIL ResponseType = iota
-	STRING
-	ERROR
-	INTEGER
-	BULK
-	ARRAY
-)
 
 type ctrlType byte
 
