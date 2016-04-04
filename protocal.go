@@ -197,6 +197,11 @@ func writeReqToBuf(buf *bufio.Writer, req *Request) {
 
 	//写入参数
 	for _, arg := range req.args {
+		//TODO: 判断参数的类型
+		switch arg := arg.(type) {
+		case string:
+			arg
+		}
 		v := fmt.Sprint(arg)
 		buf.WriteByte(size_byte)
 		buf.WriteString(strconv.Itoa(len(v)))
