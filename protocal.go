@@ -3,7 +3,7 @@ package asredis
 import (
 	"bufio"
 	"errors"
-	//"fmt"
+	"fmt"
 	"strconv"
 )
 
@@ -204,9 +204,12 @@ func writeReqToBuf(buf *bufio.Writer, req *Request) {
 			v = arg
 		case int, int32, int64, uint, uint32, uint64:
 			buf.WriteByte(num_byte)
-			v = strconv.FormatInt(int64(arg), 10)
+			v = strconv.FormatInt(arg, 10)
+		case float64:
+			v = strconv.FormatFloat(float64(arg), 'f', -1, 64)
 		default:
-			panic(ErrUnexpectedRequestType)
+			buf.WriteByte(size_byte)
+			v = fmt.Sprint(arg)
 		}
 
 		buf.WriteString(strconv.Itoa(len(v)))
@@ -215,6 +218,18 @@ func writeReqToBuf(buf *bufio.Writer, req *Request) {
 		buf.WriteString(v)
 		buf.Write(cr_lf)
 	}
+}
+
+func writeInt64(buf *bufio.Writer, i int64) {
+
+}
+
+func writeString(buf *bufio.Writer, s string) {
+
+}
+
+func writeBytes(buf *bufio.Writer, b []byte) {
+	
 }
 
 func checkError(err error) {
