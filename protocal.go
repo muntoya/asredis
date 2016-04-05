@@ -3,14 +3,15 @@ package asredis
 import (
 	"bufio"
 	"errors"
-	"fmt"
+	//"fmt"
 	"strconv"
 )
 
 var (
-	ErrExpectingLinefeed   = errors.New("redis: expecting a linefeed byte")
-	ErrUnexpectedReplyType = errors.New("redis: can't parse reply type")
-	ErrNilReply            = errors.New("redis: reply is nil")
+	ErrExpectingLinefeed     = errors.New("redis: expecting a linefeed byte")
+	ErrUnexpectedReplyType   = errors.New("redis: can't parse reply type")
+	ErrUnexpectedRequestType = errors.New("redis: can't parse request value type")
+	ErrNilReply              = errors.New("redis: reply is nil")
 )
 
 const (
@@ -35,7 +36,6 @@ const (
 )
 
 var cr_lf = []byte{cr_byte, lf_byte}
-
 
 type ctrlType byte
 
@@ -197,13 +197,18 @@ func writeReqToBuf(buf *bufio.Writer, req *Request) {
 
 	//写入参数
 	for _, arg := range req.args {
-		//TODO: 判断参数的类型
+		var v string
 		switch arg := arg.(type) {
 		case string:
-			arg
+			buf.WriteByte(size_byte)
+			v = arg
+		case int, int32, int64, uint, uint32, uint64:
+			buf.WriteByte(num_byte)
+			v = strconv.FormatInt(int64(arg), 10)
+		default:
+			panic(ErrUnexpectedRequestType)
 		}
-		v := fmt.Sprint(arg)
-		buf.WriteByte(size_byte)
+
 		buf.WriteString(strconv.Itoa(len(v)))
 		buf.Write(cr_lf)
 
