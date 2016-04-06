@@ -202,10 +202,14 @@ func writeReqToBuf(buf *bufio.Writer, req *Request) {
 		case string:
 			buf.WriteByte(size_byte)
 			v = arg
+		case []byte:
+			buf.WriteByte(size_byte)
+			v = string(arg)
 		case int, int32, int64, uint, uint32, uint64:
 			buf.WriteByte(num_byte)
-			v = strconv.FormatInt(arg, 10)
+			v = fmt.Sprint(arg)
 		case float64:
+			buf.WriteByte(size_byte)
 			v = strconv.FormatFloat(float64(arg), 'f', -1, 64)
 		default:
 			buf.WriteByte(size_byte)
@@ -218,18 +222,6 @@ func writeReqToBuf(buf *bufio.Writer, req *Request) {
 		buf.WriteString(v)
 		buf.Write(cr_lf)
 	}
-}
-
-func writeInt64(buf *bufio.Writer, i int64) {
-
-}
-
-func writeString(buf *bufio.Writer, s string) {
-
-}
-
-func writeBytes(buf *bufio.Writer, b []byte) {
-	
 }
 
 func checkError(err error) {
