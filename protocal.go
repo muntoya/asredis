@@ -197,31 +197,52 @@ func writeReqToBuf(buf *bufio.Writer, req *Request) {
 
 	//写入参数
 	for _, arg := range req.args {
-		var v string
 		switch arg := arg.(type) {
 		case string:
-			buf.WriteByte(size_byte)
-			v = arg
+			writeString(buf, arg)
 		case []byte:
-			buf.WriteByte(size_byte)
-			v = string(arg)
+			writeBytes(buf, arg)
 		case int, int32, int64, uint, uint32, uint64:
-			buf.WriteByte(num_byte)
-			v = fmt.Sprint(arg)
+			writeInt(buf, arg)
 		case float64:
-			buf.WriteByte(size_byte)
-			v = strconv.FormatFloat(float64(arg), 'f', -1, 64)
+			writeFloat(buf, arg)
 		default:
-			buf.WriteByte(size_byte)
-			v = fmt.Sprint(arg)
+			writeString(buf, fmt.Sprint(arg))
 		}
-
-		buf.WriteString(strconv.Itoa(len(v)))
-		buf.Write(cr_lf)
-
-		buf.WriteString(v)
-		buf.Write(cr_lf)
 	}
+}
+
+func writeString(buf *bufio.Writer, str string) {
+	buf.WriteByte(size_byte)
+	buf.WriteString(strconv.Itoa(len(str)))
+	buf.Write(cr_lf)
+
+	buf.WriteString(str)
+	buf.Write(cr_lf)
+}
+
+func writeBytes(buf *bufio.Writer, b []byte) {
+	buf.WriteByte(size_byte)
+	buf.WriteString(strconv.Itoa(len(b)))
+	buf.Write(cr_lf)
+
+	buf.Write(b)
+	buf.Write(cr_lf)
+}
+
+func writeInt(buf *bufio.Writer, i interface{}) {
+	buf.WriteByte(num_byte)
+	buf.WriteString(fmt.Sprint(i))
+}
+
+func writeFloat(buf *bufio.Writer, f float64) {
+	buf.WriteByte(size_byte)
+	v := strconv.FormatFloat(float64(f), 'f', -1, 64)
+	buf.WriteString(strconv.Itoa(len(v)))
+	buf.Write(cr_lf)
+
+	buf.WriteString(v)
+	buf.Write(cr_lf)
 }
 
 func checkError(err error) {
