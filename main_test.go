@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-var Conn *Connection
+var testConn *Connection
 
 func TestMain(m *testing.M) {
 	SetupSuite()
@@ -17,11 +17,11 @@ func TestMain(m *testing.M) {
 func SetupSuite() {
 	spec := DefaultConnectionSpec()
 	reqChan := make(chan *RequestsPkg, 10)
-	Conn = NewConnection(*spec, reqChan)
+	testConn = NewConnection(*spec, reqChan)
 }
 
 func TearDownSuite() {
-	Conn.Close()
+	testConn.Close()
 }
 
 var testCommands = []struct {

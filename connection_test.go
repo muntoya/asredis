@@ -26,7 +26,7 @@ func TestConnection(t *testing.T) {
 	for _, command := range testCommands {
 		var reply interface{}
 		var err error
-		reply, err = do(Conn, command.args[0].(string), command.args[1:]...)
+		reply, err = do(testConn, command.args[0].(string), command.args[1:]...)
 		assert.Nil(t, err)
 		assert.Equal(t, command.expected, reply)
 	}
@@ -48,7 +48,7 @@ func TestConnRoutine(t *testing.T) {
 		go func(n int) {
 			key := fmt.Sprintf("int%d", n)
 			for j := 0; j < times; j++ {
-				_, e := do(Conn, "set", key, n)
+				_, e := do(conn, "set", key, n)
 				if e != nil {
 					t.Fatal(e)
 				}
@@ -60,7 +60,7 @@ func TestConnRoutine(t *testing.T) {
 }
 
 func TestConnError(t *testing.T) {
-	t.Skip("skip connnection loop")
+	//t.Skip("skip connnection loop")
 	spec := DefaultConnectionSpec()
 	reqChan := make(chan *RequestsPkg, 10)
 	conn := NewConnection(*spec, reqChan)
@@ -73,7 +73,7 @@ func TestConnError(t *testing.T) {
 
 	for i := 0; i < 3; i++ {
 		fmt.Println("go", i)
-		reply, err := do(Conn, "GET", "int")
+		reply, err := do(conn, "GET", "int")
 		fmt.Println(i, err)
 		if err == nil {
 			t.Log(reply)

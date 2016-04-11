@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"runtime/debug"
+	//"runtime/debug"
 	"time"
 )
 
@@ -151,11 +151,17 @@ func (c *Connection) isConnected() bool {
 }
 
 func (c *Connection) sendReconnectCtrl() {
-	c.ctrlChan <- type_ctrl_reconnect
+	select {
+	case c.ctrlChan <- type_ctrl_reconnect:
+	default:
+	}
 }
 
 func (c *Connection) sendShutdownCtrl() {
-	c.ctrlChan <- type_ctrl_shutdown
+	select {
+	case c.ctrlChan <- type_ctrl_shutdown:
+	default:
+	}
 }
 
 func (c *Connection) sendRequest(reqsPkg *RequestsPkg) {
@@ -166,8 +172,8 @@ func (c *Connection) sendRequest(reqsPkg *RequestsPkg) {
 				req.Err = e
 			}
 			reqsPkg.done()
-			c.recover(e)
-			fmt.Println(string(debug.Stack()))
+			c.sendReconnectCtrl()
+			//fmt.Println(string(debug.Stack()))
 		}
 	}()
 
@@ -183,11 +189,13 @@ func (c *Connection) sendRequest(reqsPkg *RequestsPkg) {
 }
 
 func (c *Connection) recover(err error) {
+	fmt.Println("recover")
 	//一定时间段内只尝试重连一次
 	if c.lastConnect.Add(c.ReconnectInterval).After(time.Now()) {
 		return
 	}
 
+	fmt.Println("reconnect")
 	c.lastConnect = time.Now()
 	c.connect()
 }
@@ -250,7 +258,6 @@ func NewConnection(spec ConnectionSpec, c chan *RequestsPkg) (conn *Connection) 
 		ConnectionSpec: spec,
 		waitingChan:    c,
 		pingTick:       time.Tick(spec.PingInterval),
-		lastConnect:    time.Now(),
 		ctrlChan:       make(chan ctrlType, 10),
 	}
 
