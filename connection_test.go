@@ -26,16 +26,32 @@ func TestConnection(t *testing.T) {
 		expected interface{}
 	}{
 		{
-			[]interface{}{"SET", "int", 2},
+			[]interface{}{"SET", "int", "2"},
 			"OK",
 		},
 		{
 			[]interface{}{"GET", "int"},
-			2,
+			"2",
+		},
+		{
+			[]interface{}{"DEL", "int"},
+			1,
+		},
+		{
+			[]interface{}{"DEL", "list"},
+			0,
 		},
 		{
 			[]interface{}{"RPUSH", "list", "1", "2", "3", "4", "5"},
+			5,
+		},
+		{
+			[]interface{}{"LRANGE", "list", 0, -1},
 			[]interface{}{"1", "2", "3", "4", "5"},
+		},
+		{
+			[]interface{}{"DEL", "list"},
+			1,
 		},
 	}
 
@@ -44,9 +60,8 @@ func TestConnection(t *testing.T) {
 	for _, command := range testCommands {
 		var reply interface{}
 		var err error
-		fmt.Println("bengin do")
 		reply, err = do(Conn, command.args[0].(string), command.args[1:]...)
-		fmt.Println("end do")
+		t.Log(command)
 		assert.Nil(t, err)
 		assert.Equal(t, command.expected, reply)
 	}

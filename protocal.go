@@ -197,18 +197,13 @@ func writeReqToBuf(buf *bufio.Writer, req *Request) {
 
 	//写入参数
 	for _, arg := range req.args {
-		switch arg := arg.(type) {
-		case string:
-			writeString(buf, arg)
-		case []byte:
-			writeBytes(buf, arg)
-		case int, int32, int64, uint, uint32, uint64:
-			writeInt(buf, arg)
-		case float64:
-			writeFloat(buf, arg)
-		default:
-			writeString(buf, fmt.Sprint(arg))
-		}
+		str := fmt.Sprint(arg)
+		buf.WriteByte(size_byte)
+		buf.WriteString(strconv.Itoa(len(str)))
+		buf.Write(cr_lf)
+
+		buf.WriteString(str)
+		buf.Write(cr_lf)
 	}
 }
 
@@ -233,6 +228,7 @@ func writeBytes(buf *bufio.Writer, b []byte) {
 func writeInt(buf *bufio.Writer, i interface{}) {
 	buf.WriteByte(num_byte)
 	buf.WriteString(fmt.Sprint(i))
+	buf.Write(cr_lf)
 }
 
 func writeFloat(buf *bufio.Writer, f float64) {
