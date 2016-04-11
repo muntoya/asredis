@@ -5,36 +5,14 @@ import (
 	//	"runtime/debug"
 	"fmt"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/suite"
 	"sync"
 	"testing"
 )
 
-type ConnectionTestSuite struct {
-	suite.Suite
 
-	Conn *Connection
-}
 
-func (s *ConnectionTestSuite) SetupSuite() {
-	spec := DefaultConnectionSpec()
-	reqChan := make(chan *RequestsPkg, 10)
-	s.Conn = NewConnection(*spec, reqChan)
-}
 
-func (s *ConnectionTestSuite) TearDownSuite() {
-	fmt.Println("close")
-	s.Conn.Close()
-}
-
-func (s *ConnectionTestSuite) SetupTest() {
-}
-
-func (s *ConnectionTestSuite) TearDownTest() {
-
-}
-
-func Do(conn *Connection, cmd string, args ...interface{}) (interface{}, error) {
+func do(conn *Connection, cmd string, args ...interface{}) (interface{}, error) {
 	r := NewRequstPkg()
 	r.Add(cmd, args...)
 	conn.waitingChan <- r
@@ -42,7 +20,7 @@ func Do(conn *Connection, cmd string, args ...interface{}) (interface{}, error) 
 	return r.reply(), r.err()
 }
 
-func (s *ConnectionTestSuite) TestConnection() {
+func TestConnection(t *testing.T) {
 	var testCommands = []struct {
 		args     []interface{}
 		expected interface{}
@@ -61,21 +39,21 @@ func (s *ConnectionTestSuite) TestConnection() {
 		},
 	}
 
-	t := s.T()
 	//t.Skip("skip connection test")
 
 	for _, command := range testCommands {
 		var reply interface{}
 		var err error
-		reply, err = Do(s.Conn, command.args[0].(string), command.args[1:]...)
+		fmt.Println("bengin do")
+		reply, err = do(Conn, command.args[0].(string), command.args[1:]...)
+		fmt.Println("end do")
 		assert.Nil(t, err)
 		assert.Equal(t, command.expected, reply)
 	}
 }
 
-func (s *ConnectionTestSuite) TestConnRoutine() {
+func TestConnRoutine(t *testing.T) {
 	return
-	t := s.T()
 	//t.Skip("skip connection routine")
 	spec := DefaultConnectionSpec()
 	reqChan := make(chan *RequestsPkg, 10)
@@ -90,7 +68,7 @@ func (s *ConnectionTestSuite) TestConnRoutine() {
 		go func(n int) {
 			key := fmt.Sprintf("int%d", n)
 			for j := 0; j < times; j++ {
-				_, e := Do(s.Conn, "set", key, n)
+				_, e := do(Conn, "set", key, n)
 				if e != nil {
 					t.Fatal(e)
 				}
@@ -101,8 +79,7 @@ func (s *ConnectionTestSuite) TestConnRoutine() {
 	w.Wait()
 }
 
-func (s *ConnectionTestSuite) TestConnError() {
-	t := s.T()
+func TestConnError(t *testing.T) {
 	t.Skip("skip connnection loop")
 	spec := DefaultConnectionSpec()
 	reqChan := make(chan *RequestsPkg, 10)
@@ -116,7 +93,7 @@ func (s *ConnectionTestSuite) TestConnError() {
 
 	for i := 0; i < 3; i++ {
 		fmt.Println("go", i)
-		reply, err := Do(s.Conn, "GET", "int")
+		reply, err := do(Conn, "GET", "int")
 		fmt.Println(i, err)
 		if err == nil {
 			t.Log(reply)
@@ -125,9 +102,4 @@ func (s *ConnectionTestSuite) TestConnError() {
 		}
 		time.Sleep(time.Second * 1)
 	}
-}
-
-func TestRunSuite(t *testing.T) {
-	suiteTester := new(ConnectionTestSuite)
-	suite.Run(t, suiteTester)
 }
