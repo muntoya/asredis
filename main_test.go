@@ -23,3 +23,37 @@ func SetupSuite() {
 func TearDownSuite() {
 	Conn.Close()
 }
+
+var testCommands = []struct {
+	args     []interface{}
+	expected interface{}
+}{
+	{
+		[]interface{}{"SET", "int", "2"},
+		"OK",
+	},
+	{
+		[]interface{}{"GET", "int"},
+		"2",
+	},
+	{
+		[]interface{}{"DEL", "int"},
+		1,
+	},
+	{
+		[]interface{}{"DEL", "list"},
+		0,
+	},
+	{
+		[]interface{}{"RPUSH", "list", "1", "2", "3", "4", "5"},
+		5,
+	},
+	{
+		[]interface{}{"LRANGE", "list", 0, -1},
+		[]interface{}{"1", "2", "3", "4", "5"},
+	},
+	{
+		[]interface{}{"DEL", "list"},
+		1,
+	},
+}
