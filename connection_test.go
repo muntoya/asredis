@@ -66,20 +66,18 @@ func TestConnError(t *testing.T) {
 	conn := NewConnection(*spec, reqChan)
 	defer conn.Close()
 
-	go func() {
-		time.Sleep(time.Second * 1)
-		conn.Conn.Close()
-	}()
+	req := "haha"
+	reply, err := do(conn, "ECHO", req)
+	assert.Nil(t, err)
+	assert.Equal(t, req, reply)
 
-	for i := 0; i < 3; i++ {
-		fmt.Println("go", i)
-		reply, err := do(conn, "GET", "int")
-		fmt.Println(i, err)
-		if err == nil {
-			t.Log(reply)
-		} else {
-			t.Log(err)
-		}
-		time.Sleep(time.Second * 1)
-	}
+	conn.Conn.Close()
+
+	reply, err = do(conn, "ECHO", req)
+	assert.NotNil(t, err)
+
+	time.Sleep(time.Millisecond)
+	reply, err = do(conn, "ECHO", req)
+	assert.Nil(t, err)
+	assert.Equal(t, req, reply)
 }

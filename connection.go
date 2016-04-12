@@ -139,7 +139,6 @@ func (c *Connection) Close() {
 func (c *Connection) ping() {
 	r := NewRequstPkg()
 	r.Add("PING")
-	c.doPipelining(r)
 }
 
 func (c *Connection) isShutDown() bool {
@@ -189,13 +188,11 @@ func (c *Connection) sendRequest(reqsPkg *RequestsPkg) {
 }
 
 func (c *Connection) recover(err error) {
-	fmt.Println("recover")
 	//一定时间段内只尝试重连一次
 	if c.lastConnect.Add(c.ReconnectInterval).After(time.Now()) {
 		return
 	}
 
-	fmt.Println("reconnect")
 	c.lastConnect = time.Now()
 	c.connect()
 }
