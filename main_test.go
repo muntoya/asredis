@@ -15,7 +15,7 @@ func TestMain(m *testing.M) {
 }
 
 func SetupSuite() {
-	spec := DefaultConnectionSpec()
+	spec := DefaultSpec()
 	reqChan := make(chan *RequestsPkg, 10)
 	testConn = NewConnection(*spec, reqChan)
 }

@@ -9,9 +9,6 @@ import (
 	"testing"
 )
 
-
-
-
 func do(conn *Connection, cmd string, args ...interface{}) (interface{}, error) {
 	r := NewRequstPkg()
 	r.Add(cmd, args...)
@@ -35,7 +32,7 @@ func TestConnection(t *testing.T) {
 func TestConnRoutine(t *testing.T) {
 	return
 	//t.Skip("skip connection routine")
-	spec := DefaultConnectionSpec()
+	spec := DefaultSpec()
 	reqChan := make(chan *RequestsPkg, 10)
 	conn := NewConnection(*spec, reqChan)
 	defer conn.Close()
@@ -61,7 +58,7 @@ func TestConnRoutine(t *testing.T) {
 
 func TestConnError(t *testing.T) {
 	//t.Skip("skip connnection loop")
-	spec := DefaultConnectionSpec()
+	spec := DefaultSpec()
 	reqChan := make(chan *RequestsPkg, 10)
 	conn := NewConnection(*spec, reqChan)
 	defer conn.Close()

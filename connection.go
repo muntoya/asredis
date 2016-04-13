@@ -37,7 +37,7 @@ const (
 	defaultPingInterval      time.Duration = time.Second
 )
 
-type ConnectionSpec struct {
+type Spec struct {
 	Host              string
 	Port              int16
 	Password          string
@@ -56,8 +56,8 @@ type ConnectionSpec struct {
 	PingInterval      time.Duration
 }
 
-func DefaultConnectionSpec() *ConnectionSpec {
-	return &ConnectionSpec{
+func DefaultSpec() *Spec {
+	return &Spec{
 		defaultHost,
 		defaultPort,
 		defaultPassword,
@@ -79,7 +79,7 @@ func DefaultConnectionSpec() *ConnectionSpec {
 
 type Connection struct {
 	net.Conn
-	ConnectionSpec
+	Spec
 	readBuffer  *bufio.Reader
 	writeBuffer *bufio.Writer
 	stop        bool
@@ -97,7 +97,7 @@ type Connection struct {
 	lastConnect time.Time
 }
 
-func createTCPConnection(s *ConnectionSpec) (net.Conn, error) {
+func createTCPConnection(s *Spec) (net.Conn, error) {
 	addr := fmt.Sprintf("%s:%d", s.Host, s.Port)
 	conn, err := net.DialTimeout("tcp", addr, s.TCPConnectTimeout)
 	if err != nil {
@@ -117,7 +117,7 @@ func (c *Connection) connect() {
 	c.connected = false
 
 	var err error
-	c.Conn, err = createTCPConnection(&c.ConnectionSpec)
+	c.Conn, err = createTCPConnection(&c.Spec)
 	if err != nil {
 		c.err = err
 		log.Printf("can't connect to redis %v, error:%v", c.Host, err)
@@ -248,11 +248,11 @@ func (c *Connection) readAllReply(reqs *RequestsPkg) {
 	reqs.done()
 }
 
-func NewConnection(spec ConnectionSpec, c chan *RequestsPkg) (conn *Connection) {
+func NewConnection(spec Spec, c chan *RequestsPkg) (conn *Connection) {
 	conn = &Connection{
 		stop:           false,
 		connected:      false,
-		ConnectionSpec: spec,
+		Spec: spec,
 		waitingChan:    c,
 		pingTick:       time.Tick(spec.PingInterval),
 		ctrlChan:       make(chan ctrlType, 10),
