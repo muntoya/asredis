@@ -34,7 +34,7 @@ func TestConnRoutine(t *testing.T) {
 	//t.Skip("skip connection routine")
 	spec := DefaultSpec()
 	reqChan := make(chan *RequestsPkg, 10)
-	conn := NewConnection(*spec, reqChan)
+	conn := newConnection(*spec, reqChan)
 	defer conn.Close()
 
 	routineNum := 80
@@ -60,7 +60,7 @@ func TestConnError(t *testing.T) {
 	//t.Skip("skip connnection loop")
 	spec := DefaultSpec()
 	reqChan := make(chan *RequestsPkg, 10)
-	conn := NewConnection(*spec, reqChan)
+	conn := newConnection(*spec, reqChan)
 	defer conn.Close()
 
 	req := "haha"

@@ -248,7 +248,7 @@ func (c *Connection) readAllReply(reqs *RequestsPkg) {
 	reqs.done()
 }
 
-func NewConnection(spec Spec, c chan *RequestsPkg) (conn *Connection) {
+func newConnection(spec Spec, c chan *RequestsPkg) (conn *Connection) {
 	conn = &Connection{
 		stop:           false,
 		connected:      false,

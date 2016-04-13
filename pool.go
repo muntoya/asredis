@@ -1,6 +1,7 @@
 package asredis
 
 import (
+	"sync"
 //	"time"
 //"fmt"
 )
@@ -23,6 +24,7 @@ type Pool struct {
 	QueueSize int32
 
 	stopChan chan struct{}
+	stopWg sync.WaitGroup
 }
 
 func (p *Pool) Call(cmd string, args ...interface{}) (interface{}, error) {
@@ -40,13 +42,23 @@ func (p *Pool) Pipelining(reqPkg *RequestsPkg) {
 
 func (p *Pool) Start() {
 	if p.stopChan != nil {
-		panic("asredis: the given client is already started. Call Stop() before calling Start() ")
+		panic("asredis: the given client is already started. Call Stop() before calling Start()")
 	}
 	p.queueChan = make(chan *RequestsPkg, p.QueueSize)
+	p.stopChan = make(chan struct{})
+
+	for i := 0; i < p.PoolSize; i++ {
+		c := newConnection()
+	}
 }
 
 func (p *Pool) Stop() {
-
+	if p.stopChan == nil {
+		panic("asredis: the client must be started before stopping it")
+	}
+	close(p.stopChan)
+	p.stopWg.Wait()
+	p.stopChan = nil
 }
 
 func (p *Pool) Eval(l *LuaEval, args ...interface{}) (reply interface{}, err error) {
