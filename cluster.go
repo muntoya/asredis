@@ -26,17 +26,10 @@ type nodeAddr struct {
 
 type mapping [numSlots]*Pool
 
-type ClusterSpec struct {
-	PoolSpec
-}
-
-func DefaultClusterSpec() *ClusterSpec {
-	return &ClusterSpec{PoolSpec: *DefaultPoolSpec()}
-}
 
 type Cluster struct {
 	mutex sync.RWMutex
-	ClusterSpec
+	Spec
 
 	slotsMap mapping
 	pools    map[nodeAddr]*Pool
@@ -130,7 +123,7 @@ func (c *Cluster) updateSlots() (err error) {
 		var pool *Pool
 		pool, ok := c.pools[slots.node]
 		if !ok {
-			spec := c.PoolSpec
+			spec := c.Spec
 			spec.Host = slots.node.host
 			spec.Port = slots.node.port
 			pool = NewPool(&spec)

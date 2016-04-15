@@ -48,7 +48,8 @@ func (p *Pool) Start() {
 	p.stopChan = make(chan struct{})
 
 	for i := 0; i < p.PoolSize; i++ {
-		c := newConnection()
+		c := new(Connection)
+		go c.process(p)
 	}
 }
 

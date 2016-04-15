@@ -79,22 +79,13 @@ func DefaultSpec() *Spec {
 
 type Connection struct {
 	net.Conn
-	Spec
 	readBuffer  *bufio.Reader
 	writeBuffer *bufio.Writer
-	stop        bool
 
 	//等待送入发送线程的请求
 	waitingChan chan *RequestsPkg
 
-	//控制消息
-	ctrlChan chan ctrlType
-
-	connected bool
-	err       error
 	pingTick  <-chan time.Time
-
-	lastConnect time.Time
 }
 
 func createTCPConnection(s *Spec) (net.Conn, error) {
@@ -113,19 +104,17 @@ func createTCPConnection(s *Spec) (net.Conn, error) {
 	return conn, nil
 }
 
-func (c *Connection) connect() {
-	c.connected = false
-
+func (c *Connection) connect(spec *Spec) {
 	var err error
-	c.Conn, err = createTCPConnection(&c.Spec)
+	c.Conn, err = createTCPConnection(spec)
 	if err != nil {
 		c.err = err
 		log.Printf("can't connect to redis %v, error:%v", c.Host, err)
 		return
 	}
 
-	c.readBuffer = bufio.NewReaderSize(c.Conn, c.IOReadBufSize)
-	c.writeBuffer = bufio.NewWriterSize(c.Conn, c.IOWriteBufSize)
+	c.readBuffer = bufio.NewReaderSize(c.Conn, spec.IOReadBufSize)
+	c.writeBuffer = bufio.NewWriterSize(c.Conn, spec.IOWriteBufSize)
 
 	c.connected = true
 	c.err = nil
@@ -212,7 +201,9 @@ func (c *Connection) handleCtrl(ctrltype ctrlType) {
 }
 
 //处理读请求和控制请求
-func (c *Connection) process() {
+func (c *Connection) process(p *Pool) {
+
+	c.pingTick =      time.Tick(p.PingInterval)
 	for {
 		if c.stop {
 			break
@@ -246,21 +237,4 @@ func (c *Connection) readAllReply(reqs *RequestsPkg) {
 		req.Reply, req.Err = readReply(c.readBuffer)
 	}
 	reqs.done()
-}
-
-func newConnection(spec Spec, c chan *RequestsPkg) (conn *Connection) {
-	conn = &Connection{
-		stop:           false,
-		connected:      false,
-		Spec: spec,
-		waitingChan:    c,
-		pingTick:       time.Tick(spec.PingInterval),
-		ctrlChan:       make(chan ctrlType, 10),
-	}
-
-	conn.connect()
-
-	go conn.process()
-
-	return
 }
