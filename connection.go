@@ -38,8 +38,6 @@ const (
 )
 
 type Spec struct {
-	Host              string
-	Port              int16
 	Password          string
 	DB                int
 	TCPConnectTimeout time.Duration
@@ -78,6 +76,7 @@ func DefaultSpec() *Spec {
 }
 
 type Connection struct {
+	addr string
 	net.Conn
 	readBuffer  *bufio.Reader
 	writeBuffer *bufio.Writer
@@ -85,11 +84,10 @@ type Connection struct {
 	//等待送入发送线程的请求
 	waitingChan chan *RequestsPkg
 
-	pingTick  <-chan time.Time
+	pingTick <-chan time.Time
 }
 
-func createTCPConnection(s *Spec) (net.Conn, error) {
-	addr := fmt.Sprintf("%s:%d", s.Host, s.Port)
+func createTCPConnection(s *Spec, addr string) (net.Conn, error) {
 	conn, err := net.DialTimeout("tcp", addr, s.TCPConnectTimeout)
 	if err != nil {
 		return nil, err
@@ -104,52 +102,20 @@ func createTCPConnection(s *Spec) (net.Conn, error) {
 	return conn, nil
 }
 
-func (c *Connection) connect(spec *Spec) {
-	var err error
-	c.Conn, err = createTCPConnection(spec)
+func (c *Connection) connect(spec *Spec) (err error) {
+	c.Conn, err = createTCPConnection(spec, c.addr)
 	if err != nil {
-		c.err = err
-		log.Printf("can't connect to redis %v, error:%v", c.Host, err)
+		log.Printf("can't connect to redis %v, error:%v", c.addr, err)
 		return
 	}
-
 	c.readBuffer = bufio.NewReaderSize(c.Conn, spec.IOReadBufSize)
 	c.writeBuffer = bufio.NewWriterSize(c.Conn, spec.IOWriteBufSize)
-
-	c.connected = true
-	c.err = nil
-}
-
-func (c *Connection) Close() {
-	c.sendShutdownCtrl()
-	c.connected = false
+	return
 }
 
 func (c *Connection) ping() {
 	r := NewRequstPkg()
 	r.Add("PING")
-}
-
-func (c *Connection) isShutDown() bool {
-	return c.stop
-}
-
-func (c *Connection) isConnected() bool {
-	return c.connected
-}
-
-func (c *Connection) sendReconnectCtrl() {
-	select {
-	case c.ctrlChan <- type_ctrl_reconnect:
-	default:
-	}
-}
-
-func (c *Connection) sendShutdownCtrl() {
-	select {
-	case c.ctrlChan <- type_ctrl_shutdown:
-	default:
-	}
 }
 
 func (c *Connection) sendRequest(reqsPkg *RequestsPkg) {
@@ -160,58 +126,25 @@ func (c *Connection) sendRequest(reqsPkg *RequestsPkg) {
 				req.Err = e
 			}
 			reqsPkg.done()
-			c.sendReconnectCtrl()
 			//fmt.Println(string(debug.Stack()))
 		}
 	}()
 
-	if c.isShutDown() {
-		panic(ErrNotRunning)
-	}
-
-	if !c.isConnected() {
-		panic(ErrNotConnected)
-	}
-
 	c.doPipelining(reqsPkg)
-}
-
-func (c *Connection) recover(err error) {
-	//一定时间段内只尝试重连一次
-	if c.lastConnect.Add(c.ReconnectInterval).After(time.Now()) {
-		return
-	}
-
-	c.lastConnect = time.Now()
-	c.connect()
-}
-
-func (c *Connection) handleCtrl(ctrltype ctrlType) {
-	switch ctrltype {
-	case type_ctrl_reconnect:
-		c.recover(ErrNotConnected)
-	case type_ctrl_shutdown:
-		c.stop = true
-		if c.Conn != nil {
-			c.Conn.Close()
-		}
-	default:
-
-	}
 }
 
 //处理读请求和控制请求
 func (c *Connection) process(p *Pool) {
 
-	c.pingTick =      time.Tick(p.PingInterval)
+	c.pingTick = time.Tick(p.PingInterval)
 	for {
 		if c.stop {
 			break
 		}
 
 		select {
-		case ctrl := <-c.ctrlChan:
-			c.handleCtrl(ctrl)
+		case p.stopChan:
+			return
 		case reqs := <-c.waitingChan:
 			c.sendRequest(reqs)
 		case <-c.pingTick:
