@@ -135,12 +135,12 @@ func (c *Connection) sendRequest(reqsPkg *RequestsPkg) {
 
 //处理读请求和控制请求
 func (c *Connection) process(p *Pool) {
+	defer p.stopWg.Done()
 
 	c.pingTick = time.Tick(p.PingInterval)
 	for {
-		if c.stop {
-			break
-		}
+		dialChan := make(chan struct{})
+		c.connect(p.Spec)
 
 		select {
 		case p.stopChan:
